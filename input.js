@@ -247,9 +247,7 @@ document.addEventListener('wheel', function (e) {
 G.api.input = {
   lockPointer,
   openPause,
-  closePause,
-  exitToMainMenu,
-  selectSlot
+  closePause
 };
 
 })();

@@ -8,7 +8,6 @@
 const G = window.GAME;
 if (!G) return;
 
-const THREE = G.THREE;
 const SFX = G.SFX;
 
 /* --- Подсветка блока --- */

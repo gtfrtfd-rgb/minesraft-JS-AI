@@ -344,9 +344,6 @@ canvas{display:block}
   flex-wrap:wrap;
   justify-content:center;
 }
-.menu-version{
-  font-family:'Consolas','Monaco',monospace;
-}
 
 #hint{position:fixed;bottom:120px;left:50%;transform:translateX(-50%);
   color:#fff;font-size:13px;text-shadow:1px 1px 0 #000;opacity:0;
@@ -751,7 +748,6 @@ canvas{display:block}
   cursor:pointer;
   z-index:16;
   pointer-events:auto;
-  -webkit-tap-highlight-color:transparent;
   transition:transform .08s, background .08s, border-color .08s;
   box-shadow:0 2px 6px rgba(0,0,0,.4);
 }

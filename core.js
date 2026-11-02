@@ -14,7 +14,6 @@ if (!MC || !MC.generateWorld) return;
 /* --- Ссылки на движок --- */
 const G = {
   /* three.js */
-  THREE: window.THREE,
   scene: R.scene,
   renderer: R.renderer,
   camera: R.camera,
@@ -34,7 +33,6 @@ const G = {
   generateWorld: MC.generateWorld,
   buildChunk: MC.buildChunk,
   rebuildAround: MC.rebuildAround,
-  rebuildAll: MC.rebuildAll,
   updateChunkVisibility: MC.updateChunkVisibility,
 
   /* render.js */

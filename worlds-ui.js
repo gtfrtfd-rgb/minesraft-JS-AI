@@ -212,6 +212,4 @@ if (worldsDeleteOk) {
 }
 if (worldsDeleteCancel) worldsDeleteCancel.addEventListener('click', closeDeleteDialog);
 
-G.api.worldsUI = { openWorldsPanel, closeWorldsPanel, renderWorldsList };
-
 })();
