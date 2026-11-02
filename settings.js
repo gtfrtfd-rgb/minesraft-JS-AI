@@ -238,7 +238,8 @@ function clampSettingsPosition() {
   settingsPanel.style.top  = y + 'px';
 }
 
-function toggleSettings(force) {
+function toggleSettings(force, opts) {
+  opts = opts || {};
   const open = settingsPanel.classList.contains('open');
   const shouldOpen = (force === undefined) ? !open : force;
   if (shouldOpen === open) return;
@@ -254,7 +255,11 @@ function toggleSettings(force) {
     settingsPanel.classList.remove('open');
     settingsBtn.classList.remove('active');
     settingsPanel.classList.remove('menu-overlay');
-    if (G.wasInGameBeforeSettings && !G.dead && !G.paused &&
+
+    // Если закрыли мышью (не Escape) и были в игре — пытаемся вернуть lock.
+    // После Escape Chrome блокирует requestPointerLock — не пытаемся.
+    if (!opts.fromEscape &&
+        G.wasInGameBeforeSettings && !G.dead && !G.paused &&
         G.api.input && G.api.input.lockPointer) {
       G.api.input.lockPointer();
     }
@@ -291,7 +296,7 @@ document.addEventListener('click', function (e) {
 
 document.addEventListener('keydown', function (e) {
   if (e.code === 'Escape' && settingsPanel.classList.contains('open')) {
-    toggleSettings(false);
+    toggleSettings(false, { fromEscape: true });
   }
 });
 

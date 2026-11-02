@@ -27,6 +27,39 @@ if (!G) {
   return;
 }
 
+/* --- Защитные заглушки: если модуль не загрузился, не падаем --- */
+const raycastAPI = G.api.raycast || {
+  raycastBlock: function () { return null; },
+  updateBreaking: function () {},
+  placeBlock: function () {},
+  stopBreaking: function () {},
+  tryAttackMob: function () { return false; },
+  updateHighlight: function () {}
+};
+const playerAPI = G.api.player || {
+  tryMove: function () {},
+  collides: function () { return false; },
+  respawn: function () {},
+  damagePlayer: function () {},
+  healPlayer: function () {},
+  refreshHearts: function () {},
+  toggleFly: function () {}
+};
+const saveAPI = G.api.save || {
+  saveGame: function () {},
+  loadGame: function () { return false; },
+  markDirty: function () {}
+};
+const settingsAPI = G.api.settings || {
+  applyRenderDistance: function () {},
+  setGameMode: function () {},
+  updateHealthVisibility: function () {},
+  toggleSettings: function () {}
+};
+const worldsAPI = G.api.worlds || {
+  ensureActiveWorld: function () { return null; }
+};
+
 const SFX = G.SFX;
 const MOBS = G.MOBS;
 
@@ -60,10 +93,7 @@ function buildChunksAsync(onProgress, onDone) {
 
 /* --- Инициализация --- */
 (function init() {
-  const W = G.api.worlds;
-  const S = G.api.settings;
-
-  const activeWorld = W.ensureActiveWorld();
+  const activeWorld = worldsAPI.ensureActiveWorld();
   if (activeWorld && typeof activeWorld.seed === 'number') {
     G.worldSeed = activeWorld.seed;
   }
@@ -71,7 +101,7 @@ function buildChunksAsync(onProgress, onDone) {
   showLoading(true);
   setLoadingText('Загрузка сохранения…');
 
-  S.setGameMode(G.gameMode, true);
+  settingsAPI.setGameMode(G.gameMode, true);
   if (G.gameMode === 'creative') {
     G.player.fly = true;
     G.wasOnGround = false;
@@ -81,16 +111,16 @@ function buildChunksAsync(onProgress, onDone) {
   requestAnimationFrame(function () {
     requestAnimationFrame(function () {
       try {
-        const loaded = G.api.save.loadGame();
+        const loaded = saveAPI.loadGame();
         if (!loaded) {
           setLoadingText('Генерация мира…');
           G.generateWorld(G.worldSeed);
         }
-        if (!loaded) G.api.player.respawn();
-        if (G.player.pos.y < 0 || G.player.pos.y > G.SY) G.api.player.respawn();
+        if (!loaded) playerAPI.respawn();
+        if (G.player.pos.y < 0 || G.player.pos.y > G.SY) playerAPI.respawn();
 
         if (G.gameMode !== 'creative') G.player.fly = false;
-        S.updateHealthVisibility();
+        settingsAPI.updateHealthVisibility();
 
         if (loaded) {
           const cx = Math.floor(G.player.pos.x), cz = Math.floor(G.player.pos.z);
@@ -113,7 +143,7 @@ function buildChunksAsync(onProgress, onDone) {
             }
             G.wasOnGround = true;
             G.highestAirY = G.player.pos.y;
-            S.applyRenderDistance();
+            settingsAPI.applyRenderDistance();
             showLoading(false);
             console.log('[main.js] init OK. Мир:', activeWorld ? activeWorld.name : '(нет)',
                         '| Игрок:', G.player.pos.toArray(),
@@ -227,10 +257,10 @@ function update(dt) {
       if (G.sprintActive && moving && G.player.onGround) fovTarget = G.SPRINT_FOV;
     }
 
-    G.api.player.tryMove(G.player.vel.x * dt, G.player.vel.y * dt, G.player.vel.z * dt);
+    playerAPI.tryMove(G.player.vel.x * dt, G.player.vel.y * dt, G.player.vel.z * dt);
 
     if (!G.player.fly) {
-      G.player.onGround = G.api.player.collides(G.player.pos.x, G.player.pos.y - 0.03, G.player.pos.z);
+      G.player.onGround = playerAPI.collides(G.player.pos.x, G.player.pos.y - 0.03, G.player.pos.z);
       if (G.player.onGround && G.player.vel.y < 0) G.player.vel.y = 0;
     }
 
@@ -243,7 +273,7 @@ function update(dt) {
           const fallDist = G.highestAirY - G.player.pos.y;
           if (fallDist > G.FALL_SAFE) {
             const dmg = Math.floor(fallDist - G.FALL_SAFE);
-            if (dmg > 0) G.api.player.damagePlayer(dmg);
+            if (dmg > 0) playerAPI.damagePlayer(dmg);
           }
         }
       }
@@ -281,13 +311,13 @@ function update(dt) {
         G.regenAcc += dt;
         if (G.regenAcc >= G.REGEN_INTERVAL_S) {
           G.regenAcc = 0;
-          G.api.player.healPlayer(1);
+          playerAPI.healPlayer(1);
         }
       }
     }
 
     if (G.gameMode !== 'creative' && G.player.pos.y < -30) {
-      G.api.player.damagePlayer(G.MAX_HP);
+      playerAPI.damagePlayer(G.MAX_HP);
     }
 
     const newFov = G.camera.fov + (fovTarget - G.camera.fov) * Math.min(1, 8 * dt);
@@ -310,23 +340,23 @@ function update(dt) {
   G.camera.rotation.y = G.yaw;
   G.camera.rotation.x = G.pitch;
 
-  G.currentTarget = (G.locked && !G.dead && !G.paused) ? G.api.raycast.raycastBlock() : null;
-  G.api.raycast.updateHighlight();
+  G.currentTarget = (G.locked && !G.dead && !G.paused) ? raycastAPI.raycastBlock() : null;
+  raycastAPI.updateHighlight();
 
   if (G.locked && G.mouseDown[0] && !G.dead && !G.paused) {
-    if (G.api.raycast.tryAttackMob()) {
-      if (G.breaking.active) G.api.raycast.stopBreaking();
+    if (raycastAPI.tryAttackMob()) {
+      if (G.breaking.active) raycastAPI.stopBreaking();
     }
   }
 
-  G.api.raycast.updateBreaking(dt);
+  raycastAPI.updateBreaking(dt);
 
   maybeUpdateChunkVisibility();
 
   G.saveTimer += dt;
   if (G.saveTimer > 12) {
     G.saveTimer = 0;
-    if (G.dirty) G.api.save.saveGame();
+    if (G.dirty) saveAPI.saveGame();
   }
 }
 

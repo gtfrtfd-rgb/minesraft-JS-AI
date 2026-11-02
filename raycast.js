@@ -148,6 +148,11 @@ function updateBreaking(dt) {
 
     if (G.gameMode === 'creative') G.creativeBrokeThisClick = true;
     stopBreaking();
+
+    // Блок только что удалён — сбрасываем таргет, чтобы подсветка
+    // не мигнула на пустом месте в этом кадре.
+    G.currentTarget = null;
+    if (hlBox) hlBox.visible = false;
   }
 }
 
