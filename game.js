@@ -7,16 +7,16 @@
    + DDA-рейкаст блоков
    + FIX: prev-клетка при установке блока через диагональный луч
    + РЕЖИМЫ: Выживание и Креатив (G или кнопка в настройках)
-   + FIX: полёт доступен ТОЛЬКО в креативе (F, кнопка ✈)
+   + FIX: полёт доступен ТОЛЬКО в креативе (F)
    + FIX: в креативе ломается только один блок за нажатие
    + FIX: HP скрыто в креативе
    + Солнце (updateSun)
    + МЕНЕДЖЕР МИРОВ: список, создание, удаление, переименование
    + FIX: пробел и другие клавиши работают в полях ввода
    + FIX: звуки мобов отключены в главном меню / настройках
-   + МЕНЮ ПАУЗЫ (Esc на ПК, ☰ на мобильных)
-   + FIX: на телефоне сразу включается полноэкранный режим
+   + МЕНЮ ПАУЗЫ (Esc на ПК)
    + КНОПКА НАСТРОЕК В ГЛАВНОМ МЕНЮ
+   + УДАЛЕНА ПОДДЕРЖКА МОБИЛЬНЫХ УСТРОЙСТВ
    ============================================================ */
 (function () {
 'use strict';
@@ -63,7 +63,6 @@ const updateChunkVisibility = MC.updateChunkVisibility;
 const scene = R.scene;
 const renderer = R.renderer;
 const camera = R.camera;
-const isMobile = R.isMobile;
 const BASE_FOV   = R.BASE_FOV;
 const SPRINT_FOV = R.SPRINT_FOV;
 const FLY_FOV    = R.FLY_FOV;
@@ -259,41 +258,6 @@ const MOBS = (function () {
 MOBS.init(scene);
 
 /* ============================================================
-   ПОЛНОЭКРАННЫЙ РЕЖИМ (мобильные)
-   ============================================================ */
-function enterFullscreenSafe() {
-  try { window.scrollTo(0, 1); } catch (e) {}
-
-  const el = document.documentElement;
-  const p = el.requestFullscreen ||
-            el.webkitRequestFullscreen ||
-            el.mozRequestFullScreen ||
-            el.msRequestFullscreen;
-  if (!p) return;
-  if (document.fullscreenElement ||
-      document.webkitFullscreenElement ||
-      document.mozFullScreenElement ||
-      document.msFullscreenElement) return;
-  try {
-    const res = p.call(el, { navigationUI: 'hide' });
-    if (res && res.catch) res.catch(function () {});
-  } catch (e) {}
-}
-
-if (isMobile) {
-  let _fsTriggered = false;
-  const _firstTouchFs = function () {
-    if (_fsTriggered) return;
-    _fsTriggered = true;
-    enterFullscreenSafe();
-    document.removeEventListener('touchstart', _firstTouchFs, true);
-    document.removeEventListener('click', _firstTouchFs, true);
-  };
-  document.addEventListener('touchstart', _firstTouchFs, true);
-  document.addEventListener('click', _firstTouchFs, true);
-}
-
-/* ============================================================
    1. ПОДСВЕТКА
    ============================================================ */
 const hlGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004));
@@ -417,12 +381,6 @@ const firstHint = settingsPanel.querySelector('.settings-hint');
 if (firstHint) settingsPanel.insertBefore(modeRow, firstHint);
 else settingsPanel.appendChild(modeRow);
 
-function updateMobileFlyBtn() {
-  if (!isMobile) return;
-  const bf = document.getElementById('btn-fly');
-  if (bf) bf.style.display = (gameMode === 'creative') ? 'flex' : 'none';
-}
-
 function updateHealthVisibility() {
   const h = document.getElementById('health');
   if (!h) return;
@@ -463,8 +421,6 @@ function setGameMode(mode, silent) {
   }
 
   creativeBrokeThisClick = false;
-
-  updateMobileFlyBtn();
   updateHealthVisibility();
 
   if (typeof stopBreaking === 'function' && breaking.active) stopBreaking();
@@ -485,7 +441,16 @@ function isFullscreen() {
 fsCheckbox.checked = isFullscreen();
 
 function enterFullscreen() {
-  enterFullscreenSafe();
+  const el = document.documentElement;
+  const p = el.requestFullscreen ||
+            el.webkitRequestFullscreen ||
+            el.mozRequestFullScreen ||
+            el.msRequestFullscreen;
+  if (!p) return;
+  try {
+    const res = p.call(el, { navigationUI: 'hide' });
+    if (res && res.catch) res.catch(function () {});
+  } catch (e) {}
 }
 function exitFullscreen() {
   const p = document.exitFullscreen || document.webkitExitFullscreen ||
@@ -523,13 +488,13 @@ function toggleSettings(force) {
     if (!locked || paused) settingsPanel.classList.add('menu-overlay');
     settingsPanel.classList.add('open');
     settingsBtn.classList.add('active');
-    if (!isMobile && document.pointerLockElement) document.exitPointerLock();
+    if (document.pointerLockElement) document.exitPointerLock();
     clampSettingsPosition();
   } else {
     settingsPanel.classList.remove('open');
     settingsBtn.classList.remove('active');
     settingsPanel.classList.remove('menu-overlay');
-    if (!isMobile && wasInGameBeforeSettings && !dead && !paused) lockPointer();
+    if (wasInGameBeforeSettings && !dead && !paused) lockPointer();
     wasInGameBeforeSettings = false;
   }
 }
@@ -591,7 +556,7 @@ function clampSettingsPosition() {
 
 window.addEventListener('resize', clampSettingsPosition);
 
-if (!isMobile && settingsDragHandle) {
+if (settingsDragHandle) {
   let dragging = false;
   let dragOffX = 0, dragOffY = 0;
 
@@ -730,8 +695,7 @@ function respawnFromDeath() {
   wasOnGround = true;
   highestAirY = player.pos.y;
   player.crouch = false;
-  if (!isMobile) lockPointer();
-  else { locked = true; menu.style.display = 'none'; }
+  lockPointer();
   applyRenderDistance();
 }
 
@@ -852,12 +816,6 @@ const pauseExitBtn = document.getElementById('pauseExit');
 
 function lockPointer() {
   SFX.resume();
-  if (isMobile) enterFullscreenSafe();
-  if (isMobile) {
-    locked = true;
-    menu.style.display = 'none';
-    return;
-  }
   renderer.domElement.requestPointerLock();
 }
 
@@ -872,7 +830,7 @@ function openPause() {
     const modeStr = (gameMode === 'creative') ? 'Креатив' : 'Выживание';
     pauseWorldInfo.textContent = (w ? w.name : 'Мир') + '  ·  ' + modeStr;
   }
-  if (!isMobile && document.pointerLockElement) {
+  if (document.pointerLockElement) {
     try { document.exitPointerLock(); } catch (e) {}
   }
 }
@@ -902,13 +860,7 @@ if (pauseResumeBtn) {
   pauseResumeBtn.addEventListener('click', function (e) {
     e.stopPropagation();
     closePause();
-    if (isMobile) {
-      enterFullscreenSafe();
-      locked = true;
-      menu.style.display = 'none';
-    } else {
-      lockPointer();
-    }
+    lockPointer();
   });
 }
 if (pauseExitBtn) {
@@ -920,11 +872,10 @@ if (pauseExitBtn) {
 
 startBtn.addEventListener('click', lockPointer);
 renderer.domElement.addEventListener('click', function () {
-  if (!isMobile && !locked && !dead && !paused && !settingsPanel.classList.contains('open')) lockPointer();
+  if (!locked && !dead && !paused && !settingsPanel.classList.contains('open')) lockPointer();
 });
 
 document.addEventListener('pointerlockchange', () => {
-  if (isMobile) return;
   const nowLocked = document.pointerLockElement === renderer.domElement;
 
   if (locked && !nowLocked && settingsPanel.classList.contains('open')) {
@@ -956,7 +907,6 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 document.addEventListener('mousemove', (e) => {
-  if (isMobile) return;
   if (!locked || dead) return;
   yaw   -= e.movementX * 0.0022;
   pitch -= e.movementY * 0.0022;
@@ -972,12 +922,7 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'Escape' && !e.repeat) {
       e.preventDefault();
       closePause();
-      if (isMobile) {
-        locked = true;
-        menu.style.display = 'none';
-      } else {
-        lockPointer();
-      }
+      lockPointer();
     }
     return;
   }
@@ -1028,7 +973,6 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 
 let mouseDown = [false, false, false];
 renderer.domElement.addEventListener('mousedown', (e) => {
-  if (isMobile) return;
   if (!locked || dead || paused) return;
   mouseDown[e.button] = true;
   if (e.button === 0) {
@@ -1040,7 +984,6 @@ renderer.domElement.addEventListener('mousedown', (e) => {
   if (e.button === 2) placeBlock();
 });
 renderer.domElement.addEventListener('mouseup', (e) => {
-  if (isMobile) return;
   mouseDown[e.button] = false;
   if (e.button === 0) {
     stopBreaking();
@@ -1049,201 +992,10 @@ renderer.domElement.addEventListener('mouseup', (e) => {
 });
 
 document.addEventListener('wheel', (e) => {
-  if (isMobile) return;
   if (!locked || dead || paused) return;
   const d = e.deltaY > 0 ? 1 : -1;
   selectSlot((selected + d + HOTBAR.length) % HOTBAR.length);
 }, { passive: true });
-
-/* ============================================================
-   5.1. МОБИЛЬНОЕ УПРАВЛЕНИЕ
-   ============================================================ */
-const mobileInput = { active: false, mx: 0, my: 0, sprint: false, down: false };
-
-if (isMobile) {
-  const joyEl = document.getElementById('joystick');
-  const stickEl = document.getElementById('joystick-stick');
-  const JOY_RADIUS = 55;
-  const SPRINT_THRESHOLD = 0.85;
-  let joyTouchId = null;
-  let joyCx = 0, joyCy = 0;
-
-  function joyReset() {
-    stickEl.style.transform = 'translate(0px,0px)';
-    mobileInput.active = false;
-    mobileInput.mx = 0;
-    mobileInput.my = 0;
-    mobileInput.sprint = false;
-    joyTouchId = null;
-  }
-  function joyStart(e) {
-    e.preventDefault();
-    const t = e.changedTouches[0];
-    joyTouchId = t.identifier;
-    const r = joyEl.getBoundingClientRect();
-    joyCx = r.left + r.width / 2;
-    joyCy = r.top + r.height / 2;
-    joyMove(e);
-  }
-  function joyMove(e) {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const t = e.changedTouches[i];
-      if (t.identifier !== joyTouchId) continue;
-      let dx = t.clientX - joyCx;
-      let dy = t.clientY - joyCy;
-      const len = Math.hypot(dx, dy);
-      if (len > JOY_RADIUS) { dx = dx / len * JOY_RADIUS; dy = dy / len * JOY_RADIUS; }
-      stickEl.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
-      mobileInput.mx = dx / JOY_RADIUS;
-      mobileInput.my = dy / JOY_RADIUS;
-      mobileInput.active = true;
-      mobileInput.sprint = (Math.hypot(dx, dy) / JOY_RADIUS) > SPRINT_THRESHOLD;
-    }
-  }
-  joyEl.addEventListener('touchstart', joyStart, { passive: false });
-  joyEl.addEventListener('touchmove',  joyMove,  { passive: false });
-  joyEl.addEventListener('touchend',    joyReset);
-  joyEl.addEventListener('touchcancel', joyReset);
-
-  const LOOK_SENS = 0.010;
-  let lookTouchId = null;
-  let lastLookX = 0, lastLookY = 0;
-
-  function isUIElement(target) {
-    if (!target) return false;
-    return !!(target.closest && target.closest('#joystick, #mob-buttons, #btn-menu, #btn-settings, #settings-panel, #hotbar, #menu, #death, #worlds-panel, #worlds-rename, #worlds-delete, #pause'));
-  }
-
-  document.addEventListener('touchstart', function (e) {
-    if (dead || !locked || paused) return;
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const t = e.changedTouches[i];
-      if (isUIElement(t.target)) continue;
-      if (lookTouchId === null) {
-        lookTouchId = t.identifier;
-        lastLookX = t.clientX;
-        lastLookY = t.clientY;
-      }
-    }
-  }, { passive: true });
-
-  document.addEventListener('touchmove', function (e) {
-    if (dead || !locked || paused) return;
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const t = e.changedTouches[i];
-      if (t.identifier !== lookTouchId) continue;
-      const dx = t.clientX - lastLookX;
-      const dy = t.clientY - lastLookY;
-      lastLookX = t.clientX;
-      lastLookY = t.clientY;
-      yaw   -= dx * LOOK_SENS;
-      pitch -= dy * LOOK_SENS;
-      const lim = Math.PI / 2 - 0.001;
-      if (pitch >  lim) pitch =  lim;
-      if (pitch < -lim) pitch = -lim;
-    }
-  }, { passive: true });
-
-  function lookEnd(e) {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      if (e.changedTouches[i].identifier === lookTouchId) lookTouchId = null;
-    }
-  }
-  document.addEventListener('touchend', lookEnd);
-  document.addEventListener('touchcancel', lookEnd);
-
-  const btnBreak  = document.getElementById('btn-break');
-  const btnPlace  = document.getElementById('btn-place');
-  const btnJump   = document.getElementById('btn-jump');
-  const btnFly    = document.getElementById('btn-fly');
-  const btnDown   = document.getElementById('btn-down');
-  const btnMenu   = document.getElementById('btn-menu');
-
-  function bindHold(btn, onDown, onUp) {
-    if (!btn) return;
-    btn.addEventListener('touchstart', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      btn.classList.add('pressed');
-      if (onDown) onDown();
-    }, { passive: false });
-    const end = function (e) {
-      e.preventDefault(); e.stopPropagation();
-      btn.classList.remove('pressed');
-      if (onUp) onUp();
-    };
-    btn.addEventListener('touchend', end, { passive: false });
-    btn.addEventListener('touchcancel', end, { passive: false });
-  }
-
-  bindHold(btnBreak,
-    function () {
-      if (dead || !locked || paused) return;
-      mouseDown[0] = true;
-      breaking.active = false; breaking.progress = 0; breaking.stage = 0;
-      creativeBrokeThisClick = false;
-      if (tryAttackMob() && breaking.active) stopBreaking();
-    },
-    function () {
-      mouseDown[0] = false;
-      stopBreaking();
-      creativeBrokeThisClick = false;
-    }
-  );
-
-  if (btnPlace) {
-    btnPlace.addEventListener('touchstart', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      btnPlace.classList.add('pressed');
-      if (!dead && locked && !paused) placeBlock();
-      setTimeout(function () { btnPlace.classList.remove('pressed'); }, 120);
-    }, { passive: false });
-  }
-
-  bindHold(btnJump,
-    function () { if (!dead && locked && !paused) keys['Space'] = true; },
-    function () { keys['Space'] = false; }
-  );
-
-  bindHold(btnDown,
-    function () {
-      if (dead || !locked || paused) return;
-      mobileInput.down = true;
-      if (!player.fly) player.crouch = true;
-    },
-    function () {
-      mobileInput.down = false;
-      player.crouch = false;
-    }
-  );
-
-  if (btnFly) {
-    btnFly.addEventListener('touchstart', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      btnFly.classList.add('pressed');
-      if (!dead && locked && !paused) toggleFly();
-      setTimeout(function () { btnFly.classList.remove('pressed'); }, 120);
-    }, { passive: false });
-  }
-
-  if (btnMenu) {
-    btnMenu.addEventListener('touchstart', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      if (dead) return;
-      if (!paused) openPause();
-    }, { passive: false });
-  }
-
-  if (settingsBtn) {
-    settingsBtn.addEventListener('touchstart', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      toggleSettings();
-    }, { passive: false });
-  }
-
-  updateMobileFlyBtn();
-
-  console.log('[game.js] мобильный режим активен');
-}
 
 /* ============================================================
    6. РЕЙКАСТ (DDA — voxel traversal)
@@ -1825,7 +1577,6 @@ function buildChunksAsync(onProgress, onDone) {
         if (player.pos.y < 0 || player.pos.y > SY) respawn();
 
         if (gameMode !== 'creative') player.fly = false;
-        updateMobileFlyBtn();
         updateHealthVisibility();
 
         if (loaded) {
@@ -1857,7 +1608,7 @@ function buildChunksAsync(onProgress, onDone) {
                         '| режим:', gameMode,
                         '| renderDist:', settings.renderDist,
                         '| fpsLimit:', fpsLimit || '∞',
-                        '| mobile:', isMobile, '| version:', GAME_VERSION);
+                        '| version:', GAME_VERSION);
           }
         );
       } catch (e) {
@@ -1914,28 +1665,17 @@ function update(dt) {
 
     let moving = false;
 
-    if (isMobile) {
-      if (mobileInput.active) {
-        const fwdAmt    = -mobileInput.my;
-        const strafeAmt =  mobileInput.mx;
-        _wish.x = _fwd.x * fwdAmt + _rgt.x * strafeAmt;
-        _wish.z = _fwd.z * fwdAmt + _rgt.z * strafeAmt;
-        if (_wish.lengthSq() > 1) _wish.normalize();
-        moving = _wish.lengthSq() > 0.001;
-      }
-    } else {
-      if (locked) {
-        if (keys['KeyW']) _wish.add(_fwd);
-        if (keys['KeyS']) _wish.sub(_fwd);
-        if (keys['KeyD']) _wish.add(_rgt);
-        if (keys['KeyA']) _wish.sub(_rgt);
-        if (keys['ArrowUp'])    _wish.add(_fwd);
-        if (keys['ArrowDown'])  _wish.sub(_fwd);
-        if (keys['ArrowRight']) _wish.add(_rgt);
-        if (keys['ArrowLeft'])  _wish.sub(_rgt);
-        moving = _wish.lengthSq() > 0;
-        if (moving) _wish.normalize();
-      }
+    if (locked) {
+      if (keys['KeyW']) _wish.add(_fwd);
+      if (keys['KeyS']) _wish.sub(_fwd);
+      if (keys['KeyD']) _wish.add(_rgt);
+      if (keys['KeyA']) _wish.sub(_rgt);
+      if (keys['ArrowUp'])    _wish.add(_fwd);
+      if (keys['ArrowDown'])  _wish.sub(_fwd);
+      if (keys['ArrowRight']) _wish.add(_rgt);
+      if (keys['ArrowLeft'])  _wish.sub(_rgt);
+      moving = _wish.lengthSq() > 0;
+      if (moving) _wish.normalize();
     }
 
     const crouching = player.crouch && !player.fly;
@@ -1955,17 +1695,10 @@ function update(dt) {
       player.vel.x = _wish.x * sp;
       player.vel.z = _wish.z * sp;
 
-      if (isMobile) {
-        let vy = 0;
-        if (keys['Space'])       vy = sp;
-        if (mobileInput.down)    vy = -sp;
-        player.vel.y = vy;
-      } else {
-        let vy = 0;
-        if (keys['Space']) vy += sp;
-        if (keys['ShiftLeft'] || keys['ShiftRight']) vy -= sp;
-        player.vel.y = vy;
-      }
+      let vy = 0;
+      if (keys['Space']) vy += sp;
+      if (keys['ShiftLeft'] || keys['ShiftRight']) vy -= sp;
+      player.vel.y = vy;
 
       player.onGround = false;
       stepAcc = 0;
@@ -1973,8 +1706,7 @@ function update(dt) {
     } else {
       sprintActive = !crouching && (
                      ctrl ||
-                     (forwardLock && forwardHeld && moving) ||
-                     (isMobile && mobileInput.sprint && moving));
+                     (forwardLock && forwardHeld && moving));
 
       let sp;
       if (crouching)         sp = 1.9;
@@ -2143,7 +1875,6 @@ function loop(now) {
 
 requestAnimationFrame(loop);
 
-console.log('[game.js] скрипт загружен. mobile:', isMobile,
-            '| режим:', gameMode, '| version:', GAME_VERSION);
+console.log('[game.js] скрипт загружен. | режим:', gameMode, '| version:', GAME_VERSION);
 
 })();

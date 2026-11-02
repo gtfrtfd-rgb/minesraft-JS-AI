@@ -4,6 +4,7 @@
    WebGL-контекста.
    + Ленивая генерация текстур трещин
    + СОЛНЦЕ: компактный квад с мягким свечением, перекрывается блоками
+   + УДАЛЕНА ПОДДЕРЖКА МОБИЛЬНЫХ УСТРОЙСТВ
    ============================================================ */
 window.RENDER = (function () {
 'use strict';
@@ -14,11 +15,6 @@ if (!window.MC || !window.MC.generateWorld) return { ok: false, reason: 'no-mc' 
 const MC = window.MC;
 const SX = MC.SX, SZ = MC.SZ;
 const chunkGroup = MC.chunkGroup;
-
-const isMobile = ('ontouchstart' in window) ||
-                 (navigator.maxTouchPoints > 0) ||
-                 (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-if (isMobile) document.body.classList.add('mobile');
 
 /* ============================================================
    1. СЦЕНА, РЕНДЕРЕР, КАМЕРА
@@ -33,7 +29,7 @@ scene.fog = new THREE.Fog(0x87ceeb, 90, 220);
 scene.add(chunkGroup);
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.2 : 1.5));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
@@ -477,7 +473,6 @@ document.addEventListener('visibilitychange', function () {
 
 return {
   ok: true,
-  isMobile: isMobile,
   scene: scene,
   renderer: renderer,
   camera: camera,
