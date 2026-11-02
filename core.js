@@ -51,9 +51,6 @@ const G = {
   SFX: null,
   MOBS: null,
 
-  /* Версия */
-  GAME_VERSION: 'V2.5-V3.TEST MENU',
-
   /* --- Константы игрока --- */
   PR: 0.3, PH: 1.8,
   GRAVITY: 28, JUMP: 9,

@@ -120,8 +120,7 @@ function buildChunksAsync(onProgress, onDone) {
                         '| мобов:', MOBS.count(), '| hp:', G.hp,
                         '| режим:', G.gameMode,
                         '| renderDist:', G.settings.renderDist,
-                        '| fpsLimit:', G.fpsLimit || '∞',
-                        '| version:', G.GAME_VERSION);
+                        '| fpsLimit:', G.fpsLimit || '∞');
           }
         );
       } catch (e) {
@@ -361,8 +360,7 @@ function loop(now) {
       'XYZ: ' + G.player.pos.x.toFixed(1) + ' / ' + G.player.pos.y.toFixed(1) + ' / ' + G.player.pos.z.toFixed(1) + '\n' +
       'FPS: ' + G.fpsVal + (fpsLimit > 0 ? '/' + fpsLimit : '') +
       '  ·  R: ' + G.settings.renderDist +
-      '  ·  ' + (G.gameMode === 'creative' ? 'Креатив' : 'Выживание') +
-      '  ·  ' + G.GAME_VERSION;
+      '  ·  ' + (G.gameMode === 'creative' ? 'Креатив' : 'Выживание');
   }
 
   try {
@@ -372,6 +370,6 @@ function loop(now) {
 
 requestAnimationFrame(loop);
 
-console.log('[main.js] скрипт загружен. | режим:', G.gameMode, '| version:', G.GAME_VERSION);
+console.log('[main.js] скрипт загружен. | режим:', G.gameMode);
 
 })();
