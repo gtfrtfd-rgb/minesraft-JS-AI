@@ -22,15 +22,31 @@ const settingsPanel = document.getElementById('settings-panel');
 /* --- Хотбар --- */
 const hotbarEl = document.getElementById('hotbar');
 const slotEls = [];
-const atlasURL = G.atlasCanvas.toDataURL();
+
+// Вспомогательная функция: вырезает нужный тайл из атласа 64x64 (4x4 по 16px)
+// и возвращает dataURL. Это гарантирует идеально чёткие иконки без захвата соседних пикселей.
+function getTileDataURL(tileIndex) {
+  const TILE = 16;
+  const ACOLS = 4;
+  const col = tileIndex % ACOLS;
+  const row = Math.floor(tileIndex / ACOLS);
+  
+  const c = document.createElement('canvas');
+  c.width = TILE;
+  c.height = TILE;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(G.atlasCanvas, col * TILE, row * TILE, TILE, TILE, 0, 0, TILE, TILE);
+  return c.toDataURL();
+}
 
 G.HOTBAR.forEach(function (id, i) {
   const el = document.createElement('div');
   el.className = 'slot';
-  const t = G.BLOCKS[id].side;
-  const col = t % G.ACOLS, row = (t / G.ACOLS) | 0;
-  el.style.backgroundImage = 'url(' + atlasURL + ')';
-  el.style.backgroundPosition = (col * 100 / 3) + '% ' + (row * 100 / 3) + '%';
+  const t = G.BLOCKS[id].side; // используем боковую текстуру
+  
+  el.style.backgroundImage = 'url(' + getTileDataURL(t) + ')';
+  
   const label = (i === 9) ? '0' : (i === 10) ? '−' : (i + 1);
   el.innerHTML = '<span class="num">' + label + '</span>';
   el.title = G.BLOCKS[id].name;
