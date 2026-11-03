@@ -178,6 +178,7 @@ function update(dt) {
   G.updateClouds(dt, G.player.pos);
   G.updateSun(dt, G.player.pos);
 
+  // Приглушаем звуки мобов, когда мы не в игре
   if (MOBS.setMuted) MOBS.setMuted(!G.locked || G.paused);
 
   if (!G.dead && !G.paused) {
@@ -329,10 +330,13 @@ function update(dt) {
     G.sprintActive = false;
   }
 
-  try {
-    MOBS.update(dt, G.player.pos, G.settings.renderDist * G.CS);
-  } catch (e) {
-    console.error('mobs update error', e);
+  // Мобы обновляются ТОЛЬКО если игрок в игре (не в меню, не на паузе и не мертв)
+  if (G.locked && !G.paused && !G.dead) {
+    try {
+      MOBS.update(dt, G.player.pos, G.settings.renderDist * G.CS);
+    } catch (e) {
+      console.error('mobs update error', e);
+    }
   }
 
   const eyeNow = G.EYE_STAND + (G.EYE_CROUCH - G.EYE_STAND) * G.eyeBlend;
