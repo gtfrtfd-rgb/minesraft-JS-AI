@@ -1,9 +1,7 @@
 /* ============================================================
    mobs.js — мирные мобы с текстурами, звуками, HP и AI.
-   + Анимации: голова с pivot, слежение за игроком (периодически),
-     покачивание, поза прыжка
-   + Текстуры в стиле Minecraft + живые глаза
-   + FIX: звуки мобов отключаются, когда игра не активна (меню)
+   + Текстуры перерисованы вручную (Minecraft style)
+   + FIX: правильные пропорции пятен коровы и цвета
    ============================================================ */
 window.MOBS = (function () {
 'use strict';
@@ -12,13 +10,11 @@ if (!window.MC) {
   console.warn('[mobs.js] world.js не загрузился — мобы недоступны');
   const noop = function () {};
   return {
-    init: noop, update: noop,
-    spawnInitial: noop, spawnAt: noop,
+    init: noop, update: noop, spawnInitial: noop, spawnAt: noop,
     clear: noop, serialize: function () { return []; },
     deserialize: noop, count: function () { return 0; },
     raycast: function () { return null; }, hit: function () { return false; },
-    rebuildTextures: noop,
-    isBlockOccupied: function () { return false; },
+    rebuildTextures: noop, isBlockOccupied: function () { return false; },
     setMuted: noop
   };
 }
@@ -36,7 +32,6 @@ let playerPos = null;
 let lastMobSoundTime = -99999;
 let renderDistBlocks = 6 * CS;
 
-/* Приглушение звуков: когда игрок в меню, звуки мобов не играют */
 let soundsMuted = false;
 function setMuted(v) { soundsMuted = !!v; }
 
@@ -50,7 +45,6 @@ const PANIC_SPEED_MULT = 1.6;
 const LEG_SWING = 0.55;
 const VISIBILITY_MARGIN = 1.0;
 
-/* --- Параметры анимаций головы --- */
 const HEAD_LOOK_RANGE_SQ = 12 * 12;
 const HEAD_MAX_YAW       = 1.15;
 const HEAD_MAX_PITCH     = 0.55;
@@ -59,12 +53,9 @@ const HEAD_BOB_Y         = 0.02;
 const HEAD_SWAY          = 0.045;
 const JUMP_LEG_POSE      = 0.32;
 
-function cl(v) { return v < 0 ? 0 : v > 255 ? 255 : (v | 0); }
-function fract(v) { return v - Math.floor(v); }
-function hash01(x, y, s) {
-  return fract(Math.sin(x * 127.1 + y * 311.7 + s * 74.7) * 43758.5453123);
-}
-
+/* ============================================================
+   ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+   ============================================================ */
 function newTexCanvas(px) {
   const c = document.createElement('canvas');
   c.width = c.height = px;
@@ -80,77 +71,28 @@ function finalizeTex(canvas) {
   return tex;
 }
 
-function makeTex(px, palette, options) {
-  options = options || {};
-  const density   = options.density   != null ? options.density   : 0.35;
-  const patchChance = options.patchChance != null ? options.patchChance : 0;
-  const patchColors = options.patchColors || null;
-  const patchScale  = options.patchScale  || 3;
-  const seed        = options.seed        || 1;
+/* ============================================================
+   ТЕКСТУРЫ (ПОПИКСЕЛЬНО, БЕЗ ШУМА)
+   ============================================================ */
 
+// --- КОРОВА ---
+function makeCowHideTex() {
+  const px = 32;
   const c = newTexCanvas(px);
   const ctx = c.getContext('2d');
-  const img = ctx.createImageData(px, px);
-  const d = img.data;
+  
+  // Белая основа (как в оригинале)
+  ctx.fillStyle = '#f2f2f2';
+  ctx.fillRect(0, 0, px, px);
 
-  for (let y = 0; y < px; y++) {
-    for (let x = 0; x < px; x++) {
-      const bx = (x / 2) | 0;
-      const by = (y / 2) | 0;
-      const n = hash01(bx, by, seed);
-      let idx = 0;
-      if (n < density * 0.4)      idx = 0;
-      else if (n < density * 0.75) idx = 1;
-      else if (n < density)        idx = 2;
-      else                          idx = (n > 0.5 ? 2 : 3);
+  // Коричневые пятна (крупные и редкие)
+  ctx.fillStyle = '#4a2c17'; 
+  ctx.fillRect(2, 4, 10, 12);
+  ctx.fillRect(6, 2, 6, 4);
+  ctx.fillRect(20, 16, 10, 12);
+  ctx.fillRect(24, 12, 6, 6);
+  ctx.fillRect(4, 22, 8, 8);
 
-      const fine = hash01(x, y, seed + 31);
-      if (fine < 0.15 && idx > 0) idx--;
-      else if (fine > 0.9 && idx < palette.length - 1) idx++;
-
-      let col = palette[Math.min(idx, palette.length - 1)];
-
-      if (patchColors && patchChance > 0) {
-        const pbx = (x / patchScale) | 0;
-        const pby = (y / patchScale) | 0;
-        const pn = hash01(pbx, pby, seed + 91);
-        if (pn < patchChance) {
-          col = patchColors[Math.min(idx, patchColors.length - 1)];
-        }
-      }
-
-      const o = (y * px + x) * 4;
-      d[o]     = col[0];
-      d[o + 1] = col[1];
-      d[o + 2] = col[2];
-      d[o + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return finalizeTex(c);
-}
-
-function makePigSnoutTex() {
-  const px = 16;
-  const c = newTexCanvas(px);
-  const ctx = c.getContext('2d');
-  const img = ctx.createImageData(px, px);
-  const d = img.data;
-  const light = [242, 165, 160];
-  const dark  = [214, 138, 134];
-  const nos   = [90, 40, 50];
-
-  for (let y = 0; y < px; y++) {
-    for (let x = 0; x < px; x++) {
-      const n = hash01((x / 2) | 0, (y / 2) | 0, 41);
-      let col = n < 0.5 ? light : dark;
-      const ny = y >= 6 && y <= 9;
-      if (ny && ((x >= 4 && x <= 5) || (x >= 10 && x <= 11))) col = nos;
-      const o = (y * px + x) * 4;
-      d[o] = col[0]; d[o+1] = col[1]; d[o+2] = col[2]; d[o+3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
   return finalizeTex(c);
 }
 
@@ -158,372 +100,357 @@ function makeCowFaceTex() {
   const px = 16;
   const c = newTexCanvas(px);
   const ctx = c.getContext('2d');
-  const img = ctx.createImageData(px, px);
-  const d = img.data;
-  const brown    = [62, 39, 22];
-  const brownLt  = [88, 58, 36];
-  const brownDk  = [42, 25, 12];
-  const muzzle   = [242, 235, 225];
-  const muzzleDk = [200, 190, 180];
 
-  for (let y = 0; y < px; y++) {
-    for (let x = 0; x < px; x++) {
-      const n = hash01((x / 2) | 0, (y / 2) | 0, 91);
-      let col = n < 0.4 ? brown : (n < 0.8 ? brownLt : brownDk);
-      if ((Math.abs(x - 7) <= 1 || Math.abs(x - 8) <= 1) && y >= 3) {
-        col = (n < 0.5) ? muzzle : muzzleDk;
-      }
-      if (y <= 2 && (x < 4 || x > 11)) col = brownDk;
-      const o = (y * px + x) * 4;
-      d[o] = col[0]; d[o+1] = col[1]; d[o+2] = col[2]; d[o+3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
+  // Белая основа
+  ctx.fillStyle = '#f2f2f2';
+  ctx.fillRect(0, 0, px, px);
+
+  // Коричневая шапка (верхняя часть лица)
+  ctx.fillStyle = '#4a2c17';
+  ctx.fillRect(0, 0, px, 6); 
+  ctx.fillRect(2, 6, 12, 2);
+
+  // Морда (розовая)
+  ctx.fillStyle = '#e0b0b0';
+  ctx.fillRect(2, 9, 12, 7);
+
+  // Ноздри
+  ctx.fillStyle = '#996666';
+  ctx.fillRect(4, 11, 2, 2);
+  ctx.fillRect(10, 11, 2, 2);
+
+  // Глаза
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(1, 6, 3, 3);
+  ctx.fillRect(12, 6, 3, 3);
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(1, 7, 2, 2);
+  ctx.fillRect(13, 7, 2, 2);
+
   return finalizeTex(c);
 }
 
-function makeSheepWoolTex() {
+function makeCowLegTex() {
   const px = 16;
   const c = newTexCanvas(px);
   const ctx = c.getContext('2d');
-  const img = ctx.createImageData(px, px);
-  const d = img.data;
-  const shade = [
-    [235, 235, 235],
-    [220, 220, 220],
-    [205, 205, 205],
-    [190, 190, 190]
-  ];
-  for (let y = 0; y < px; y++) {
-    for (let x = 0; x < px; x++) {
-      const bx = (x / 2) | 0;
-      const by = (y / 2) | 0;
-      const n = hash01(bx, by, 5);
-      const checker = ((bx + by) & 1) === 0 ? 0.15 : 0;
-      let idx;
-      if (n + checker < 0.30)      idx = 0;
-      else if (n + checker < 0.55) idx = 1;
-      else if (n + checker < 0.80) idx = 2;
-      else                          idx = 3;
-      const o = (y * px + x) * 4;
-      d[o] = shade[idx][0]; d[o+1] = shade[idx][1]; d[o+2] = shade[idx][2];
-      d[o+3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
+  // Коричневая нога
+  ctx.fillStyle = '#4a2c17';
+  ctx.fillRect(0, 0, px, px);
+  // Светлое копыто
+  ctx.fillStyle = '#dcd2c6';
+  ctx.fillRect(0, 12, 16, 4); 
   return finalizeTex(c);
 }
 
-function makeCowHideTex() {
-  const px = 16;
-  const c = newTexCanvas(px);
-  const ctx = c.getContext('2d');
-  const img = ctx.createImageData(px, px);
-  const d = img.data;
-  const brown   = [62, 39, 22];
-  const brownLt = [88, 58, 36];
-  const brownDk = [42, 25, 12];
-  const white   = [242, 240, 236];
-  const whiteDk = [216, 214, 210];
-
-  for (let y = 0; y < px; y++) {
-    for (let x = 0; x < px; x++) {
-      const n = hash01((x / 2) | 0, (y / 2) | 0, 8);
-      let col = n < 0.4 ? brown : (n < 0.8 ? brownLt : brownDk);
-      const pbx = (x / 3) | 0;
-      const pby = (y / 3) | 0;
-      const pn = hash01(pbx, pby, 8 + 200);
-      const inBlob1 = (x >= 1 && x <= 7 && y >= 2 && y <= 8) && pn < 0.55;
-      const inBlob2 = (x >= 8 && x <= 14 && y >= 9 && y <= 14) && pn > 0.35;
-      if (inBlob1 || inBlob2) col = (n > 0.5) ? white : whiteDk;
-      const o = (y * px + x) * 4;
-      d[o] = col[0]; d[o+1] = col[1]; d[o+2] = col[2]; d[o+3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return finalizeTex(c);
-}
-
-function makeChickenBodyTex() {
-  const px = 16;
-  const c = newTexCanvas(px);
-  const ctx = c.getContext('2d');
-  const img = ctx.createImageData(px, px);
-  const d = img.data;
-  const white   = [250, 250, 250];
-  const whiteMd = [232, 232, 228];
-  const whiteDk = [210, 210, 205];
-  const whiteSh = [188, 188, 184];
-
-  for (let y = 0; y < px; y++) {
-    for (let x = 0; x < px; x++) {
-      const n = hash01((x / 2) | 0, (y / 2) | 0, 12);
-      let col;
-      if (n < 0.4) col = white;
-      else if (n < 0.7) col = whiteMd;
-      else if (n < 0.9) col = whiteDk;
-      else col = whiteSh;
-      if (y % 5 === 2 && (x + ((y / 5) | 0) * 3) % 4 === 0) col = whiteDk;
-      const o = (y * px + x) * 4;
-      d[o] = col[0]; d[o+1] = col[1]; d[o+2] = col[2]; d[o+3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return finalizeTex(c);
-}
-
-function makeChickenHeadTex() {
-  const px = 16;
-  const c = newTexCanvas(px);
-  const ctx = c.getContext('2d');
-  const img = ctx.createImageData(px, px);
-  const d = img.data;
-  const white   = [250, 250, 250];
-  const whiteMd = [232, 232, 228];
-  const whiteDk = [210, 210, 205];
-  const comb    = [204, 34, 34];
-  const combDk  = [160, 20, 20];
-
-  for (let y = 0; y < px; y++) {
-    for (let x = 0; x < px; x++) {
-      const n = hash01((x / 2) | 0, (y / 2) | 0, 12);
-      let col;
-      if (n < 0.5) col = white;
-      else if (n < 0.85) col = whiteMd;
-      else col = whiteDk;
-      if (y <= 2 && x >= 3 && x <= 12) col = (n > 0.5) ? comb : combDk;
-      const o = (y * px + x) * 4;
-      d[o] = col[0]; d[o+1] = col[1]; d[o+2] = col[2]; d[o+3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return finalizeTex(c);
-}
-
-function makeEyeTex() {
-  const px = 16;
-  const c = newTexCanvas(px);
-  const ctx = c.getContext('2d');
-  const img = ctx.createImageData(px, px);
-  const d = img.data;
-  const cx = 7.5, cy = 7.5;
-
-  for (let y = 0; y < px; y++) {
-    for (let x = 0; x < px; x++) {
-      let r, g, b;
-      const dx = x - cx, dy = y - cy;
-      const dist2 = dx * dx + dy * dy;
-
-      if (dist2 > 42) { r = 8; g = 6; b = 10; }
-      else if (dist2 > 14) { r = 34; g = 28; b = 32; }
-      else { r = 10; g = 6; b = 8; }
-
-      const hx = x - 4.7, hy = y - 4.7;
-      const hd2 = hx * hx + hy * hy;
-      if (hd2 < 2.4) { r = 255; g = 255; b = 255; }
-      else if (hd2 < 5.5) {
-        const t = (5.5 - hd2) / 3.1;
-        r = Math.min(255, r + 190 * t);
-        g = Math.min(255, g + 195 * t);
-        b = Math.min(255, b + 200 * t);
-      }
-
-      const h2x = x - 10, h2y = y - 10.5;
-      const h2d2 = h2x * h2x + h2y * h2y;
-      if (h2d2 < 1.4) { r = 195; g = 200; b = 215; }
-      else if (h2d2 < 3) {
-        r = Math.min(255, r + 70);
-        g = Math.min(255, g + 70);
-        b = Math.min(255, b + 80);
-      }
-
-      const o = (y * px + x) * 4;
-      d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return finalizeTex(c);
-}
-
-function makeCowEyeTex() {
-  const px = 16;
-  const c = newTexCanvas(px);
-  const ctx = c.getContext('2d');
-  const img = ctx.createImageData(px, px);
-  const d = img.data;
-  const cx = 7.5, cy = 7.5;
-
-  for (let y = 0; y < px; y++) {
-    for (let x = 0; x < px; x++) {
-      let r, g, b;
-      const dx = x - cx, dy = y - cy;
-      const dist2 = dx * dx + dy * dy;
-
-      if (dist2 > 30) { r = 245; g = 242; b = 234; }
-      else if (dist2 > 12) { r = 200; g = 196; b = 188; }
-      else { r = 14; g = 10; b = 12; }
-
-      const hx = x - 5, hy = y - 5;
-      const hd2 = hx * hx + hy * hy;
-      if (hd2 < 2) { r = 255; g = 255; b = 255; }
-      else if (hd2 < 4.5) {
-        const t = (4.5 - hd2) / 2.5;
-        r = Math.min(255, r + 180 * t);
-        g = Math.min(255, g + 180 * t);
-        b = Math.min(255, b + 185 * t);
-      }
-
-      const o = (y * px + x) * 4;
-      d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return finalizeTex(c);
-}
-
-function makeSolidTex(px, palette, seed) {
-  const c = newTexCanvas(px);
-  const ctx = c.getContext('2d');
-  const img = ctx.createImageData(px, px);
-  const d = img.data;
-  for (let y = 0; y < px; y++) {
-    for (let x = 0; x < px; x++) {
-      const n = hash01((x / 2) | 0, (y / 2) | 0, seed);
-      const idx = n < 0.5 ? 0 : (n < 0.85 ? 1 : 2);
-      const col = palette[Math.min(idx, palette.length - 1)];
-      const o = (y * px + x) * 4;
-      d[o] = col[0]; d[o+1] = col[1]; d[o+2] = col[2]; d[o+3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return finalizeTex(c);
-}
-
-const PIG_BASE = [[242,165,160],[228,148,144],[214,130,128],[196,114,112]];
-const PIG_LEG = [[214,130,128],[198,116,114],[180,100,100]];
-const SHEEP_FACE = [[88,78,70],[70,62,56],[52,46,42]];
-const SHEEP_LEG = [[72,66,60],[58,52,48],[44,40,36]];
-const COW_HORN = [[238,234,214],[216,208,186],[188,178,156]];
-const COW_LEG = [[62,39,22],[50,30,16],[38,22,10]];
-const CHICKEN_BEAK = [[242,168,40],[222,148,28],[198,126,18]];
-const CHICKEN_LEG = [[232,158,30],[208,136,20],[180,114,12]];
-const WATTLE_RED = [[220,40,40],[190,26,26],[160,18,18]];
-
-const MOB_TEXTURES = {
-  pigBody:  makeTex(16, PIG_BASE, { density: 0.55, seed: 1 }),
-  pigHead:  makeTex(16, PIG_BASE, { density: 0.55, seed: 2 }),
-  pigSnout: makePigSnoutTex(),
-  pigLeg:   makeSolidTex(16, PIG_LEG, 4),
-  sheepWool: makeSheepWoolTex(),
-  sheepFace: makeSolidTex(16, SHEEP_FACE, 6),
-  sheepLeg:  makeSolidTex(16, SHEEP_LEG, 7),
-  cowHide: makeCowHideTex(),
-  cowFace: makeCowFaceTex(),
-  cowHorn: makeSolidTex(16, COW_HORN, 10),
-  cowLeg:  makeSolidTex(16, COW_LEG, 11),
-  chickenBody: makeChickenBodyTex(),
-  chickenHead: makeChickenHeadTex(),
-  chickenBeak: makeSolidTex(16, CHICKEN_BEAK, 13),
-  chickenLeg:  makeSolidTex(16, CHICKEN_LEG, 14),
-  wattle: makeSolidTex(16, WATTLE_RED, 15),
-  eye:    makeEyeTex(),
-  cowEye: makeCowEyeTex()
+const COW_TEX = {
+  hide: makeCowHideTex(),
+  face: makeCowFaceTex(),
+  leg: makeCowLegTex(),
+  horn: (function(){
+    const c = newTexCanvas(16), ctx = c.getContext('2d');
+    ctx.fillStyle = '#e3e3c8'; ctx.fillRect(0,0,16,16);
+    return finalizeTex(c);
+  })()
 };
 
+// --- СВИНЬЯ ---
+function makePigBodyTex() {
+  const px = 32;
+  const c = newTexCanvas(px);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#f0a6a6';
+  ctx.fillRect(0, 0, px, px);
+  
+  // Легкая текстура кожи
+  ctx.fillStyle = '#e08e8e';
+  ctx.fillRect(6, 6, 8, 8);
+  ctx.fillRect(18, 18, 10, 8);
+  ctx.fillRect(4, 22, 8, 6);
+  return finalizeTex(c);
+}
+
+function makePigFaceTex() {
+  const px = 16;
+  const c = newTexCanvas(px);
+  const ctx = c.getContext('2d');
+  
+  ctx.fillStyle = '#f0a6a6';
+  ctx.fillRect(0, 0, px, px);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(2, 4, 3, 2);
+  ctx.fillRect(11, 4, 3, 2);
+
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(3, 4, 2, 2);
+  ctx.fillRect(11, 4, 2, 2);
+
+  return finalizeTex(c);
+}
+
+function makePigSnoutTex() {
+  const px = 16;
+  const c = newTexCanvas(px);
+  const ctx = c.getContext('2d');
+  
+  ctx.fillStyle = '#d98686';
+  ctx.fillRect(0, 0, px, px);
+
+  ctx.fillStyle = '#a64d4d';
+  ctx.fillRect(3, 6, 3, 4);
+  ctx.fillRect(10, 6, 3, 4);
+
+  return finalizeTex(c);
+}
+
+function makePigLegTex() {
+  const px = 16;
+  const c = newTexCanvas(px);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#e08e8e';
+  ctx.fillRect(0, 0, px, px);
+  ctx.fillStyle = '#c26b6b';
+  ctx.fillRect(0, 12, 16, 4); // Копыто
+  return finalizeTex(c);
+}
+
+const PIG_TEX = {
+  body: makePigBodyTex(),
+  face: makePigFaceTex(),
+  snout: makePigSnoutTex(),
+  leg: makePigLegTex()
+};
+
+// --- ОВЦА ---
+function makeSheepWoolTex() {
+  const px = 32;
+  const c = newTexCanvas(px);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#e8e8e8';
+  ctx.fillRect(0, 0, px, px);
+  
+  // Объемная шерсть
+  ctx.fillStyle = '#d0d0d0';
+  for(let y=0; y<px; y+=4){
+    for(let x=0; x<px; x+=4){
+      if((x+y)%8===0) ctx.fillRect(x, y, 4, 4);
+    }
+  }
+  return finalizeTex(c);
+}
+
+function makeSheepFaceTex() {
+  const px = 16;
+  const c = newTexCanvas(px);
+  const ctx = c.getContext('2d');
+  
+  ctx.fillStyle = '#dcd2c6';
+  ctx.fillRect(0, 0, px, px);
+
+  // Шерсть на лбу
+  ctx.fillStyle = '#e8e8e8';
+  ctx.fillRect(0, 0, px, 3);
+  ctx.fillRect(2, 3, 12, 2);
+
+  // Глаза
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(1, 5, 3, 3);
+  ctx.fillRect(12, 5, 3, 3);
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(2, 6, 2, 2);
+  ctx.fillRect(12, 6, 2, 2);
+
+  // Нос
+  ctx.fillStyle = '#b0a59a';
+  ctx.fillRect(6, 10, 4, 4);
+
+  return finalizeTex(c);
+}
+
+function makeSheepLegTex() {
+  const px = 16;
+  const c = newTexCanvas(px);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#dcd2c6';
+  ctx.fillRect(0, 0, px, px);
+  ctx.fillStyle = '#b0a59a';
+  ctx.fillRect(0, 12, 16, 4); // Копыто
+  return finalizeTex(c);
+}
+
+const SHEEP_TEX = {
+  wool: makeSheepWoolTex(),
+  face: makeSheepFaceTex(),
+  leg: makeSheepLegTex()
+};
+
+// --- КУРИЦА ---
+function makeChickenBodyTex() {
+  const px = 32;
+  const c = newTexCanvas(px);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#f2f2f2';
+  ctx.fillRect(0, 0, px, px);
+  
+  // Перья
+  ctx.fillStyle = '#d4d4d4';
+  ctx.fillRect(4, 4, 8, 8);
+  ctx.fillRect(16, 16, 8, 8);
+  ctx.fillRect(4, 20, 6, 6);
+  ctx.fillRect(22, 4, 6, 6);
+  return finalizeTex(c);
+}
+
+function makeChickenFaceTex() {
+  const px = 16;
+  const c = newTexCanvas(px);
+  const ctx = c.getContext('2d');
+  
+  ctx.fillStyle = '#f2f2f2';
+  ctx.fillRect(0, 0, px, px);
+
+  // Гребешок
+  ctx.fillStyle = '#cc2222';
+  ctx.fillRect(4, 0, 8, 3);
+
+  // Глаза
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(2, 4, 3, 3);
+  ctx.fillRect(11, 4, 3, 3);
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(3, 5, 2, 2);
+  ctx.fillRect(11, 5, 2, 2);
+
+  return finalizeTex(c);
+}
+
+function makeChickenBeakTex() {
+  const px = 16;
+  const c = newTexCanvas(px);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#e5a128';
+  ctx.fillRect(0, 0, px, px);
+  return finalizeTex(c);
+}
+
+function makeChickenLegTex() {
+  const px = 16;
+  const c = newTexCanvas(px);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#e5a128';
+  ctx.fillRect(0, 0, px, px);
+  return finalizeTex(c);
+}
+
+const CHICKEN_TEX = {
+  body: makeChickenBodyTex(),
+  face: makeChickenFaceTex(),
+  beak: makeChickenBeakTex(),
+  wattle: (function(){
+    const c = newTexCanvas(16), ctx = c.getContext('2d');
+    ctx.fillStyle = '#cc2222'; ctx.fillRect(0,0,16,16);
+    return finalizeTex(c);
+  })(),
+  leg: makeChickenLegTex()
+};
+
+/* ============================================================
+   МАТЕРИАЛЫ
+   ============================================================ */
 const SHADES = [0.92, 0.76, 1.00, 0.55, 0.86, 0.86];
 const MAT_CACHE = new Map();
 
-function getMobMaterial(color, texKey, faceIdx) {
+function getMobMaterial(tex, faceIdx) {
   const s = SHADES[faceIdx];
-  const key = (texKey ? 'T:' + texKey : 'C:' + color) + ':' + faceIdx;
-  const cached = MAT_CACHE.get(key);
-  if (cached) return cached;
+  if (MAT_CACHE.has(tex)) {
+    const arr = MAT_CACHE.get(tex);
+    if (arr[faceIdx]) return arr[faceIdx];
+  } else {
+    MAT_CACHE.set(tex, []);
+  }
 
   const m = new THREE.MeshBasicMaterial({ fog: true });
-  const tex = texKey ? MOB_TEXTURES[texKey] : null;
-  if (tex) {
-    m.map = tex;
-    m.color.setRGB(s, s, s);
-  } else {
-    m.color.set(color).multiplyScalar(s);
-  }
-  MAT_CACHE.set(key, m);
+  m.map = tex;
+  m.color.setRGB(s, s, s);
+  MAT_CACHE.get(tex)[faceIdx] = m;
   return m;
 }
 
-function makeBox(w, h, d, color, texKey) {
+function makeBox(w, h, d, tex, faceTex) {
   const mats = new Array(6);
-  for (let i = 0; i < 6; i++) mats[i] = getMobMaterial(color, texKey, i);
+  for (let i = 0; i < 6; i++) {
+    // В Three.js BoxGeometry: 4 — это +Z (задняя), 5 — это -Z (передняя).
+    // Применяем faceTex к грани 5.
+    const isFace = (i === 5) && faceTex;
+    mats[i] = getMobMaterial(isFace ? faceTex : tex, i);
+  }
   return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mats);
 }
 
+/* ============================================================
+   ОПРЕДЕЛЕНИЯ МОБОВ (МОДЕЛИ)
+   ============================================================ */
 const MOB_TYPES = {
   pig: {
     h: 0.9, r: 0.42, speed: 1.4, hp: 10,
-    headPivot: [0, 0.75, -0.35],
+    headPivot: [0, 0.75, -0.4],
     parts: [
-      [0.625, 0.5,   1.0,   0xEE9999,  0,    0.625,  0,     '',  'pigBody'],
-      [0.5,   0.5,   0.5,   0xEE9999,  0,    0.75,  -0.55,  'h', 'pigHead'],
-      [0.25,  0.2,   0.1,   0xCC6677,  0,    0.66,  -0.85,  'h', 'pigSnout'],
-      [0.05,  0.05,  0.02,  0x551122, -0.06, 0.66,  -0.91,  'h', null],
-      [0.05,  0.05,  0.02,  0x551122,  0.06, 0.66,  -0.91,  'h', null],
-      [0.1,   0.1,   0.02,  0x111111, -0.15, 0.875, -0.81,  'h', 'eye'],
-      [0.1,   0.1,   0.02,  0x111111,  0.15, 0.875, -0.81,  'h', 'eye'],
-      [0.1,   0.1,   0.08,  0xCC6677, -0.15, 1.02,  -0.5,   'h', null],
-      [0.1,   0.1,   0.08,  0xCC6677,  0.15, 1.02,  -0.5,   'h', null],
-      [0.25,  0.375, 0.25,  0xCC6677, -0.19, 0.1875, -0.33, 'l', 'pigLeg'],
-      [0.25,  0.375, 0.25,  0xCC6677,  0.19, 0.1875, -0.33, 'l', 'pigLeg'],
-      [0.25,  0.375, 0.25,  0xCC6677, -0.19, 0.1875,  0.33, 'l', 'pigLeg'],
-      [0.25,  0.375, 0.25,  0xCC6677,  0.19, 0.1875,  0.33, 'l', 'pigLeg']
+      { w: 0.625, h: 0.5, d: 1.0, tex: PIG_TEX.body, x: 0, y: 0.625, z: 0, tag: '' },
+      { w: 0.5, h: 0.5, d: 0.5, tex: PIG_TEX.body, faceTex: PIG_TEX.face, x: 0, y: 0.75, z: -0.45, tag: 'h' },
+      { w: 0.25, h: 0.2, d: 0.1, tex: PIG_TEX.snout, x: 0, y: 0.75, z: -0.75, tag: 'h' },
+      { w: 0.1, h: 0.1, d: 0.05, tex: PIG_TEX.body, x: -0.15, y: 0.95, z: -0.65, tag: 'h' },
+      { w: 0.1, h: 0.1, d: 0.05, tex: PIG_TEX.body, x: 0.15, y: 0.95, z: -0.65, tag: 'h' },
+      { w: 0.25, h: 0.375, d: 0.25, tex: PIG_TEX.leg, x: -0.19, y: 0.1875, z: -0.33, tag: 'l' },
+      { w: 0.25, h: 0.375, d: 0.25, tex: PIG_TEX.leg, x: 0.19, y: 0.1875, z: -0.33, tag: 'l' },
+      { w: 0.25, h: 0.375, d: 0.25, tex: PIG_TEX.leg, x: -0.19, y: 0.1875, z: 0.33, tag: 'l' },
+      { w: 0.25, h: 0.375, d: 0.25, tex: PIG_TEX.leg, x: 0.19, y: 0.1875, z: 0.33, tag: 'l' }
     ]
   },
 
   sheep: {
     h: 1.25, r: 0.42, speed: 1.2, hp: 8,
-    headPivot: [0, 0.875, -0.5],
+    headPivot: [0, 0.875, -0.55],
     parts: [
-      [0.75,  0.75,  1.0,   0xEEEEEE,  0,    0.875,  0,     '',  'sheepWool'],
-      [0.4,   0.5,   0.4,   0x444444,  0,    0.875, -0.7,   'h', 'sheepFace'],
-      [0.09,  0.09,  0.02,  0xFFFFFF, -0.1,  0.95,  -0.91,  'h', 'eye'],
-      [0.09,  0.09,  0.02,  0xFFFFFF,  0.1,  0.95,  -0.91,  'h', 'eye'],
-      [0.25,  0.5,   0.25,  0x333333, -0.2,  0.25,  -0.3,   'l', 'sheepLeg'],
-      [0.25,  0.5,   0.25,  0x333333,  0.2,  0.25,  -0.3,   'l', 'sheepLeg'],
-      [0.25,  0.5,   0.25,  0x333333, -0.2,  0.25,   0.3,   'l', 'sheepLeg'],
-      [0.25,  0.5,   0.25,  0x333333,  0.2,  0.25,   0.3,   'l', 'sheepLeg']
+      { w: 0.75, h: 0.75, d: 1.0, tex: SHEEP_TEX.wool, x: 0, y: 0.875, z: 0, tag: '' },
+      { w: 0.4, h: 0.5, d: 0.4, tex: SHEEP_TEX.leg, faceTex: SHEEP_TEX.face, x: 0, y: 0.875, z: -0.7, tag: 'h' },
+      { w: 0.15, h: 0.1, d: 0.05, tex: SHEEP_TEX.leg, x: -0.2, y: 0.9, z: -0.7, tag: 'h' },
+      { w: 0.15, h: 0.1, d: 0.05, tex: SHEEP_TEX.leg, x: 0.2, y: 0.9, z: -0.7, tag: 'h' },
+      { w: 0.25, h: 0.5, d: 0.25, tex: SHEEP_TEX.leg, x: -0.2, y: 0.25, z: -0.3, tag: 'l' },
+      { w: 0.25, h: 0.5, d: 0.25, tex: SHEEP_TEX.leg, x: 0.2, y: 0.25, z: -0.3, tag: 'l' },
+      { w: 0.25, h: 0.5, d: 0.25, tex: SHEEP_TEX.leg, x: -0.2, y: 0.25, z: 0.3, tag: 'l' },
+      { w: 0.25, h: 0.5, d: 0.25, tex: SHEEP_TEX.leg, x: 0.2, y: 0.25, z: 0.3, tag: 'l' }
     ]
   },
 
   cow: {
     h: 1.45, r: 0.45, speed: 1.2, hp: 10,
-    headPivot: [0, 1.0625, -0.5],
+    headPivot: [0, 1.0625, -0.55],
     parts: [
-      [0.75,  0.625, 1.125, 0x664422,  0,    1.0625,  0,     '',  'cowHide'],
-      [0.5,   0.5,   0.5,   0x664422,  0,    1.0625, -0.7,   'h', 'cowFace'],
-      [0.1,   0.15,  0.1,   0xF0F0D0, -0.15, 1.38,   -0.7,   'h', 'cowHorn'],
-      [0.1,   0.15,  0.1,   0xF0F0D0,  0.15, 1.38,   -0.7,   'h', 'cowHorn'],
-      [0.09,  0.09,  0.02,  0x000000, -0.15, 1.15,   -0.96,  'h', 'cowEye'],
-      [0.09,  0.09,  0.02,  0x000000,  0.15, 1.15,   -0.96,  'h', 'cowEye'],
-      [0.25,  0.75,  0.25,  0x442211, -0.25, 0.375,  -0.4,   'l', 'cowLeg'],
-      [0.25,  0.75,  0.25,  0x442211,  0.25, 0.375,  -0.4,   'l', 'cowLeg'],
-      [0.25,  0.75,  0.25,  0x442211, -0.25, 0.375,   0.4,   'l', 'cowLeg'],
-      [0.25,  0.75,  0.25,  0x442211,  0.25, 0.375,   0.4,   'l', 'cowLeg']
+      { w: 0.75, h: 0.625, d: 1.125, tex: COW_TEX.hide, x: 0, y: 1.0625, z: 0, tag: '' },
+      { w: 0.5, h: 0.5, d: 0.5, tex: COW_TEX.hide, faceTex: COW_TEX.face, x: 0, y: 1.0625, z: -0.7, tag: 'h' },
+      { w: 0.1, h: 0.15, d: 0.1, tex: COW_TEX.horn, x: -0.2, y: 1.32, z: -0.75, tag: 'h' },
+      { w: 0.1, h: 0.15, d: 0.1, tex: COW_TEX.horn, x: 0.2, y: 1.32, z: -0.75, tag: 'h' },
+      { w: 0.25, h: 0.75, d: 0.25, tex: COW_TEX.leg, x: -0.25, y: 0.375, z: -0.4, tag: 'l' },
+      { w: 0.25, h: 0.75, d: 0.25, tex: COW_TEX.leg, x: 0.25, y: 0.375, z: -0.4, tag: 'l' },
+      { w: 0.25, h: 0.75, d: 0.25, tex: COW_TEX.leg, x: -0.25, y: 0.375, z: 0.4, tag: 'l' },
+      { w: 0.25, h: 0.75, d: 0.25, tex: COW_TEX.leg, x: 0.25, y: 0.375, z: 0.4, tag: 'l' }
     ]
   },
 
   chicken: {
     h: 0.7, r: 0.22, speed: 2.0, hp: 4,
-    headPivot: [0, 0.75, -0.18],
+    headPivot: [0, 0.75, -0.25],
     parts: [
-      [0.3,   0.4,   0.4,   0xFFFFFF,  0,    0.45,   0,     '',  'chickenBody'],
-      [0.2,   0.3,   0.2,   0xFFFFFF,  0,    0.75,  -0.28,  'h', 'chickenHead'],
-      [0.15,  0.1,   0.15,  0xE8A020,  0,    0.7,   -0.45,  'h', 'chickenBeak'],
-      [0.1,   0.08,  0.04,  0xCC2222,  0,    0.6,   -0.45,  'h', 'wattle'],
-      [0.07,  0.07,  0.02,  0x000000, -0.06, 0.8,   -0.39,  'h', 'eye'],
-      [0.07,  0.07,  0.02,  0x000000,  0.06, 0.8,   -0.39,  'h', 'eye'],
-      [0.05,  0.25,  0.3,   0xEEEEEE, -0.175, 0.45,  0,     '',  'chickenBody'],
-      [0.05,  0.25,  0.3,   0xEEEEEE,  0.175, 0.45,  0,     '',  'chickenBody'],
-      [0.08,  0.25,  0.08,  0xE8A020, -0.08, 0.125,  0.05,  'l', 'chickenLeg'],
-      [0.08,  0.25,  0.08,  0xE8A020,  0.08, 0.125,  0.05,  'l', 'chickenLeg']
+      { w: 0.3, h: 0.4, d: 0.4, tex: CHICKEN_TEX.body, x: 0, y: 0.45, z: 0, tag: '' },
+      { w: 0.2, h: 0.25, d: 0.2, tex: CHICKEN_TEX.body, faceTex: CHICKEN_TEX.face, x: 0, y: 0.75, z: -0.25, tag: 'h' },
+      { w: 0.15, h: 0.1, d: 0.15, tex: CHICKEN_TEX.beak, x: 0, y: 0.75, z: -0.35, tag: 'h' },
+      { w: 0.1, h: 0.08, d: 0.04, tex: CHICKEN_TEX.wattle, x: 0, y: 0.65, z: -0.36, tag: 'h' },
+      { w: 0.05, h: 0.3, d: 0.35, tex: CHICKEN_TEX.body, x: -0.175, y: 0.5, z: 0, tag: '' },
+      { w: 0.05, h: 0.3, d: 0.35, tex: CHICKEN_TEX.body, x: 0.175, y: 0.5, z: 0, tag: '' },
+      { w: 0.2, h: 0.15, d: 0.05, tex: CHICKEN_TEX.body, x: 0, y: 0.55, z: 0.225, tag: '' },
+      { w: 0.06, h: 0.25, d: 0.06, tex: CHICKEN_TEX.leg, x: -0.08, y: 0.125, z: 0.05, tag: 'l' },
+      { w: 0.06, h: 0.25, d: 0.06, tex: CHICKEN_TEX.leg, x: 0.08, y: 0.125, z: 0.05, tag: 'l' }
     ]
   }
 };
@@ -544,18 +471,19 @@ function buildMobMesh(type) {
 
   for (let i = 0; i < def.parts.length; i++) {
     const p = def.parts[i];
-    const w = p[0], h = p[1], d = p[2], color = p[3];
-    const x = p[4], y = p[5], z = p[6];
-    const tag = p[7] || '';
-    const texKey = p[8];
+    const w = p.w, h = p.h, d = p.d;
+    const tex = p.tex, faceTex = p.faceTex;
+    const x = p.x, y = p.y, z = p.z;
+    const tag = p.tag || '';
+
+    const mesh = makeBox(w, h, d, tex, faceTex);
 
     if (tag === 'l') {
       const pivotY = y + h / 2;
       const pivot = new THREE.Group();
       pivot.position.set(x, pivotY, z);
-      const legMesh = makeBox(w, h, d, color, texKey);
-      legMesh.position.set(0, -h / 2, 0);
-      pivot.add(legMesh);
+      mesh.position.set(0, -h / 2, 0);
+      pivot.add(mesh);
       group.add(pivot);
       legs.push({
         pivot: pivot,
@@ -563,11 +491,9 @@ function buildMobMesh(type) {
         front: z < 0
       });
     } else if (tag === 'h' && headGroup) {
-      const mesh = makeBox(w, h, d, color, texKey);
       mesh.position.set(x - hp[0], y - hp[1], z - hp[2]);
       headGroup.add(mesh);
     } else {
-      const mesh = makeBox(w, h, d, color, texKey);
       mesh.position.set(x, y, z);
       group.add(mesh);
     }
@@ -576,6 +502,9 @@ function buildMobMesh(type) {
   return { group: group, legs: legs, headGroup: headGroup };
 }
 
+/* ============================================================
+   ЛОГИКА И AI
+   ============================================================ */
 function createMob(type, x, y, z, yaw) {
   if (!MOB_TYPES[type]) type = 'pig';
   const def = MOB_TYPES[type];
@@ -593,34 +522,26 @@ function createMob(type, x, y, z, yaw) {
     legs: built.legs,
     headGroup: built.headGroup,
 
-    headYaw: 0,
-    headPitch: 0,
+    headYaw: 0, headPitch: 0,
     headBobPhase: Math.random() * Math.PI * 2,
     headLookAtPlayer: false,
     headLookTimer: 1 + Math.random() * 4,
     headGlanceTimer: 0,
-    headIdleYaw: 0,
-    headIdlePitch: 0,
+    headIdleYaw: 0, headIdlePitch: 0,
 
     pos: new THREE.Vector3(x, y, z),
     vel: new THREE.Vector3(0, 0, 0),
-    yaw: startYaw,
-    targetYaw: startYaw,
+    yaw: startYaw, targetYaw: startYaw,
     wanderTimer: 1 + Math.random() * 3,
     walking: false,
     walkPhase: 0,
     onGround: false,
-    lastX: x,
-    lastZ: z,
+    lastX: x, lastZ: z,
     stuckTimer: 0,
-    avoidCooldown: 0,
-    jumpCooldown: 0,
+    avoidCooldown: 0, jumpCooldown: 0,
     soundTimer: 2 + Math.random() * 6,
-    hp: def.hp,
-    maxHp: def.hp,
-    dead: false,
-    hurtTimer: 0,
-    panicTimer: 0,
+    hp: def.hp, maxHp: def.hp,
+    dead: false, hurtTimer: 0, panicTimer: 0,
     lookAtCooldown: 1 + Math.random() * 3
   };
   mobs.push(mob);
@@ -643,19 +564,13 @@ function mobCollides(px, py, pz, r, h) {
 
 function canJumpOver(mob, axisX, axisZ) {
   const r = mob.def.r, h = mob.def.h;
-  const look = 1.0;
-  const nx = mob.pos.x + axisX * look;
-  const nz = mob.pos.z + axisZ * look;
-
+  const nx = mob.pos.x + axisX * 1.0;
+  const nz = mob.pos.z + axisZ * 1.0;
   if (!mobCollides(nx, mob.pos.y, nz, r, h)) return false;
-  const upY = mob.pos.y + 1.0;
-  if (mobCollides(nx, upY, nz, r, h)) return false;
-
-  const groundY = Math.floor(upY - 0.01);
+  if (mobCollides(nx, mob.pos.y + 1.0, nz, r, h)) return false;
   const ix = Math.floor(nx), iz = Math.floor(nz);
   if (ix < 0 || ix >= SX || iz < 0 || iz >= SZ) return false;
-  if (!isSolid(ix, groundY, iz)) return false;
-  return true;
+  return isSolid(ix, Math.floor(mob.pos.y + 1.0 - 0.01), iz);
 }
 
 function tryJump(mob, axisX, axisZ) {
@@ -702,24 +617,19 @@ function mobMove(mob, dx, dy, dz) {
 
 function reactToWall(mob) {
   if (mob.avoidCooldown > 0) return;
-  const back = mob.yaw + Math.PI;
   const turn = (Math.random() - 0.5) * Math.PI / 2;
-  mob.targetYaw = back + turn;
+  mob.targetYaw = mob.yaw + Math.PI + turn;
   mob.wanderTimer = Math.max(mob.wanderTimer, 0.8 + Math.random() * 0.6);
   mob.walking = true;
   mob.avoidCooldown = 0.4;
 }
 
 function maybePlaySound(mob) {
-  if (soundsMuted) return;
-  if (!playerPos || !window.SFX) return;
-  if (mob.panicTimer > 0) return;
-
+  if (soundsMuted || !playerPos || !window.SFX || mob.panicTimer > 0) return;
   const dx = mob.pos.x - playerPos.x;
   const dy = mob.pos.y - playerPos.y;
   const dz = mob.pos.z - playerPos.z;
-  const d2 = dx * dx + dy * dy + dz * dz;
-  if (d2 > SOUND_MIN_DIST2) return;
+  if (dx*dx + dy*dy + dz*dz > SOUND_MIN_DIST2) return;
 
   const now = performance.now();
   if (now - lastMobSoundTime < 500) return;
@@ -762,8 +672,7 @@ function raycastMob(origin, dir, maxDist) {
 
   for (let i = 0; i < mobs.length; i++) {
     const m = mobs[i];
-    if (m.dead) continue;
-    if (!m.group.visible) continue;
+    if (m.dead || !m.group.visible) continue;
     const r = m.def.r, h = m.def.h;
     const minX = m.pos.x - r, maxX = m.pos.x + r;
     const minY = m.pos.y,     maxY = m.pos.y + h;
@@ -771,31 +680,25 @@ function raycastMob(origin, dir, maxDist) {
 
     let tmin = 0, tmax = bestT;
 
-    if (Math.abs(dir.x) < 1e-8) {
-      if (origin.x < minX || origin.x > maxX) continue;
-    } else {
-      let t1 = (minX - origin.x) / dir.x;
-      let t2 = (maxX - origin.x) / dir.x;
+    if (Math.abs(dir.x) < 1e-8) { if (origin.x < minX || origin.x > maxX) continue; }
+    else {
+      let t1 = (minX - origin.x) / dir.x, t2 = (maxX - origin.x) / dir.x;
       if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
       if (t1 > tmin) tmin = t1;
       if (t2 < tmax) tmax = t2;
       if (tmin > tmax) continue;
     }
-    if (Math.abs(dir.y) < 1e-8) {
-      if (origin.y < minY || origin.y > maxY) continue;
-    } else {
-      let t1 = (minY - origin.y) / dir.y;
-      let t2 = (maxY - origin.y) / dir.y;
+    if (Math.abs(dir.y) < 1e-8) { if (origin.y < minY || origin.y > maxY) continue; }
+    else {
+      let t1 = (minY - origin.y) / dir.y, t2 = (maxY - origin.y) / dir.y;
       if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
       if (t1 > tmin) tmin = t1;
       if (t2 < tmax) tmax = t2;
       if (tmin > tmax) continue;
     }
-    if (Math.abs(dir.z) < 1e-8) {
-      if (origin.z < minZ || origin.z > maxZ) continue;
-    } else {
-      let t1 = (minZ - origin.z) / dir.z;
-      let t2 = (maxZ - origin.z) / dir.z;
+    if (Math.abs(dir.z) < 1e-8) { if (origin.z < minZ || origin.z > maxZ) continue; }
+    else {
+      let t1 = (minZ - origin.z) / dir.z, t2 = (maxZ - origin.z) / dir.z;
       if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
       if (t1 > tmin) tmin = t1;
       if (t2 < tmax) tmax = t2;
@@ -807,7 +710,6 @@ function raycastMob(origin, dir, maxDist) {
       best = m;
     }
   }
-
   return best ? { mob: best, t: bestT } : null;
 }
 
@@ -816,12 +718,9 @@ function isBlockOccupied(bx, by, bz) {
     const m = mobs[i];
     if (m.dead) continue;
     const r = m.def.r, h = m.def.h;
-    if (bx + 1 <= m.pos.x - r) continue;
-    if (bx     >= m.pos.x + r) continue;
-    if (by + 1 <= m.pos.y)     continue;
-    if (by     >= m.pos.y + h) continue;
-    if (bz + 1 <= m.pos.z - r) continue;
-    if (bz     >= m.pos.z + r) continue;
+    if (bx + 1 <= m.pos.x - r || bx >= m.pos.x + r) continue;
+    if (by + 1 <= m.pos.y     || by >= m.pos.y + h) continue;
+    if (bz + 1 <= m.pos.z - r || bz >= m.pos.z + r) continue;
     return true;
   }
   return false;
@@ -830,7 +729,6 @@ function isBlockOccupied(bx, by, bz) {
 function unstickMob(mob) {
   const r = mob.def.r, h = mob.def.h;
   if (!mobCollides(mob.pos.x, mob.pos.y, mob.pos.z, r, h)) return;
-
   for (let k = 1; k <= 14; k++) {
     const ny = mob.pos.y + 0.3 * k;
     if (!mobCollides(mob.pos.x, ny, mob.pos.z, r, h)) {
@@ -863,12 +761,9 @@ function animateHead(mob, dt) {
   const hg = mob.headGroup;
   if (!hg) return;
 
-  let targetYaw = 0;
-  let targetPitch = 0;
-
+  let targetYaw = 0, targetPitch = 0;
   let playerNearby = false;
-  let relYawToPlayer = 0;
-  let relPitchToPlayer = 0;
+  let relYawToPlayer = 0, relPitchToPlayer = 0;
 
   if (playerPos && !mob.dead) {
     const dx = playerPos.x - mob.pos.x;
@@ -886,30 +781,22 @@ function animateHead(mob, dt) {
       let relYaw = desiredWorldYaw - mob.yaw;
       while (relYaw >  Math.PI) relYaw -= Math.PI * 2;
       while (relYaw < -Math.PI) relYaw += Math.PI * 2;
-      if (relYaw >  HEAD_MAX_YAW) relYaw =  HEAD_MAX_YAW;
-      if (relYaw < -HEAD_MAX_YAW) relYaw = -HEAD_MAX_YAW;
-      relYawToPlayer = relYaw;
+      relYawToPlayer = Math.max(-HEAD_MAX_YAW, Math.min(HEAD_MAX_YAW, relYaw));
 
       let relPitch = -Math.atan2(dy, distXZ);
-      if (relPitch >  HEAD_MAX_PITCH) relPitch =  HEAD_MAX_PITCH;
-      if (relPitch < -HEAD_MAX_PITCH) relPitch = -HEAD_MAX_PITCH;
-      relPitchToPlayer = relPitch;
+      relPitchToPlayer = Math.max(-HEAD_MAX_PITCH, Math.min(HEAD_MAX_PITCH, relPitch));
     }
   }
 
   if (mob.panicTimer > 0) {
     mob.headLookAtPlayer = false;
-    targetYaw = 0;
-    targetPitch = 0;
+    targetYaw = 0; targetPitch = 0;
   } else if (mob.headLookAtPlayer) {
     mob.headGlanceTimer -= dt;
     if (!playerNearby || mob.headGlanceTimer <= 0) {
       mob.headLookAtPlayer = false;
       mob.headLookTimer = 2 + Math.random() * 5;
-      const sign = Math.random() < 0.5 ? -1 : 1;
-      mob.headIdleYaw = sign * (0.15 + Math.random() * 0.55);
-      if (mob.headIdleYaw >  HEAD_MAX_YAW) mob.headIdleYaw =  HEAD_MAX_YAW;
-      if (mob.headIdleYaw < -HEAD_MAX_YAW) mob.headIdleYaw = -HEAD_MAX_YAW;
+      mob.headIdleYaw = (Math.random() - 0.5) * 1.1;
       mob.headIdlePitch = (Math.random() - 0.5) * 0.35;
     } else {
       targetYaw = relYawToPlayer;
@@ -925,10 +812,7 @@ function animateHead(mob, dt) {
         targetPitch = relPitchToPlayer;
       } else {
         mob.headLookTimer = 2 + Math.random() * 5;
-        const sign = Math.random() < 0.5 ? -1 : 1;
-        mob.headIdleYaw = sign * (0.15 + Math.random() * 0.55);
-        if (mob.headIdleYaw >  HEAD_MAX_YAW) mob.headIdleYaw =  HEAD_MAX_YAW;
-        if (mob.headIdleYaw < -HEAD_MAX_YAW) mob.headIdleYaw = -HEAD_MAX_YAW;
+        mob.headIdleYaw = (Math.random() - 0.5) * 1.1;
         mob.headIdlePitch = (Math.random() - 0.5) * 0.35;
         targetYaw = mob.headIdleYaw;
         targetPitch = mob.headIdlePitch;
@@ -943,8 +827,7 @@ function animateHead(mob, dt) {
   mob.headYaw   += (targetYaw   - mob.headYaw)   * k;
   mob.headPitch += (targetPitch - mob.headPitch) * k;
 
-  let bobY = 0;
-  let sway = 0;
+  let bobY = 0, sway = 0;
   if (mob.walking && mob.onGround && mob.panicTimer <= 0) {
     const ph = mob.walkPhase + mob.headBobPhase;
     bobY = Math.sin(ph * 2) * HEAD_BOB_Y;
@@ -1002,17 +885,6 @@ function updateMob(mob, dt) {
         mob.wanderTimer = 2 + Math.random() * 3;
       }
     }
-
-    if (!mob.walking && playerPos) {
-      mob.lookAtCooldown -= dt;
-      if (mob.lookAtCooldown <= 0) {
-        mob.lookAtCooldown = 3 + Math.random() * 4;
-        const dx = playerPos.x - mob.pos.x;
-        const dz = playerPos.z - mob.pos.z;
-        const d2 = dx * dx + dz * dz;
-        if (d2 < 36) mob.targetYaw = Math.atan2(-dx, -dz);
-      }
-    }
   }
 
   let dyaw = mob.targetYaw - mob.yaw;
@@ -1046,11 +918,9 @@ function updateMob(mob, dt) {
     const mdz = mob.pos.z - mob.lastZ;
     const movedSq = mdx * mdx + mdz * mdz;
     const expected = def.speed * dt * 0.1;
-    if (movedSq < expected * expected) {
-      mob.stuckTimer += dt;
-    } else {
-      mob.stuckTimer = 0;
-    }
+    if (movedSq < expected * expected) mob.stuckTimer += dt;
+    else mob.stuckTimer = 0;
+
     if (mob.stuckTimer > 0.6) {
       const turn = (Math.random() < 0.5 ? 1 : -1) * (Math.PI * 0.5 + Math.random() * Math.PI * 0.5);
       mob.targetYaw = mob.yaw + turn;
@@ -1076,37 +946,28 @@ function updateMob(mob, dt) {
   } else if (mob.walking) {
     const swing = Math.sin(mob.walkPhase) * LEG_SWING;
     for (let i = 0; i < mob.legs.length; i++) {
-      const leg = mob.legs[i];
-      leg.pivot.rotation.x = swing * leg.dir;
+      mob.legs[i].pivot.rotation.x = swing * mob.legs[i].dir;
     }
   } else {
     const k = Math.min(1, 8 * dt);
     for (let i = 0; i < mob.legs.length; i++) {
-      const leg = mob.legs[i];
-      leg.pivot.rotation.x += (0 - leg.pivot.rotation.x) * k;
+      mob.legs[i].pivot.rotation.x += (0 - mob.legs[i].pivot.rotation.x) * k;
     }
   }
 
-  if (mob.walking && mob.onGround) {
-    mob.walkPhase += dt * 8 * speedMult;
-  } else {
-    mob.walkPhase *= 0.85;
-  }
+  if (mob.walking && mob.onGround) mob.walkPhase += dt * 8 * speedMult;
+  else mob.walkPhase *= 0.85;
 
   mob.group.position.copy(mob.pos);
   mob.group.rotation.y = mob.yaw;
 
   animateHead(mob, dt);
-
   updateMobVisibility(mob);
 
   if (mob.pos.y < -10) {
     const ix = Math.floor(mob.pos.x), iz = Math.floor(mob.pos.z);
-    if (ix >= 0 && ix < SX && iz >= 0 && iz < SZ) {
-      mob.pos.y = highestAt(ix, iz) + 0.5;
-    } else {
-      mob.pos.y = 30;
-    }
+    if (ix >= 0 && ix < SX && iz >= 0 && iz < SZ) mob.pos.y = highestAt(ix, iz) + 0.5;
+    else mob.pos.y = 30;
     mob.vel.set(0, 0, 0);
   }
 }
@@ -1124,30 +985,25 @@ function spawnAt(type, x, y, z, yaw) {
 }
 
 function spawnInitial(count) {
-  if (!scene) {
-    console.warn('[mobs.js] init(scene) не был вызван — пропускаю спавн');
-    return 0;
-  }
+  if (!scene) return 0;
   const types = ['pig', 'sheep', 'cow', 'chicken'];
   let spawned = 0;
   let attempts = 0;
-  const maxAttempts = count * 40;
 
-  while (spawned < count && attempts < maxAttempts) {
+  while (spawned < count && attempts < count * 40) {
     attempts++;
     const x = 2 + Math.floor(Math.random() * (SX - 4));
     const z = 2 + Math.floor(Math.random() * (SZ - 4));
     const y = findGround(x, z);
     if (y < 1 || y >= SY - 1) continue;
+    
     const top = world[IDX(x, y - 1, z)];
     if (top !== 1 && top !== 5 && top !== 11) continue;
 
     let ok = true;
     for (let dx = -1; dx <= 1 && ok; dx++) {
       for (let dz = -1; dz <= 1; dz++) {
-        const nx = x + dx, nz = z + dz;
-        if (nx < 1 || nx >= SX - 1 || nz < 1 || nz >= SZ - 1) { ok = false; break; }
-        if (world[IDX(nx, y, nz)] !== 0) { ok = false; break; }
+        if (world[IDX(x + dx, y, z + dz)] !== 0) { ok = false; break; }
       }
     }
     if (!ok) continue;
@@ -1192,13 +1048,12 @@ function deserialize(arr) {
 }
 
 function rebuildTextures() {
-  for (const key in MOB_TEXTURES) {
-    const t = MOB_TEXTURES[key];
-    if (t && t.needsUpdate !== undefined) t.needsUpdate = true;
-  }
-  MAT_CACHE.forEach(function (m) {
-    if (m.map) m.map.needsUpdate = true;
-    m.needsUpdate = true;
+  MAT_CACHE.forEach(function (arr) {
+    for (let i = 0; i < arr.length; i++) {
+      const m = arr[i];
+      if (m && m.map) m.map.needsUpdate = true;
+      if (m) m.needsUpdate = true;
+    }
   });
 }
 
@@ -1222,9 +1077,6 @@ function update(dt, pPos, renderDistanceBlocks) {
   }
 }
 
-function raycast(origin, dir, maxDist) { return raycastMob(origin, dir, maxDist); }
-function hit(mob, damage, fromX, fromZ) { return hitMob(mob, damage, fromX, fromZ); }
-
 return {
   init: init,
   update: update,
@@ -1234,8 +1086,8 @@ return {
   serialize: serialize,
   deserialize: deserialize,
   count: function () { return mobs.length; },
-  raycast: raycast,
-  hit: hit,
+  raycast: function (origin, dir, maxDist) { return raycastMob(origin, dir, maxDist); },
+  hit: hitMob,
   rebuildTextures: rebuildTextures,
   isBlockOccupied: isBlockOccupied,
   setMuted: setMuted
