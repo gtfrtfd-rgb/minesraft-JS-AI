@@ -1,7 +1,7 @@
 /* ============================================================
    mobs.js — мирные мобы с текстурами, звуками, HP и AI.
-   + FIX: У курицы увеличены глаза (3x3) и исправлена бородка
-   + FIX: Модели идеально подогнаны под классический Minecraft
+   + FIX: Глаза свиньи увеличены и смотрят ровно.
+   + FIX: Зрачки коровы отцентрированы.
    ============================================================ */
 window.MOBS = (function () {
 'use strict';
@@ -97,6 +97,22 @@ function makeCowHideTex() {
   return finalizeTex(c);
 }
 
+function makeCowHeadTex() {
+  const px = 16;
+  const c = newTexCanvas(px);
+  const ctx = c.getContext('2d');
+
+  // Коричневая основа
+  ctx.fillStyle = '#4a2c17';
+  ctx.fillRect(0, 0, px, px);
+
+  // Белое пятно только на макушке
+  ctx.fillStyle = '#f2f2f2';
+  ctx.fillRect(4, 0, 8, 3);
+
+  return finalizeTex(c);
+}
+
 function makeCowFaceTex() {
   const px = 16;
   const c = newTexCanvas(px);
@@ -106,9 +122,9 @@ function makeCowFaceTex() {
   ctx.fillStyle = '#4a2c17';
   ctx.fillRect(0, 0, px, px);
 
-  // Белое пятно на лбу
+  // Белая полоса на лбу
   ctx.fillStyle = '#f2f2f2';
-  ctx.fillRect(6, 0, 4, 4);
+  ctx.fillRect(6, 0, 4, 6);
 
   // Белая морда (нижняя половина)
   ctx.fillStyle = '#f2f2f2';
@@ -127,9 +143,10 @@ function makeCowFaceTex() {
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(2, 4, 3, 3);
   ctx.fillRect(11, 4, 3, 3);
+  
   ctx.fillStyle = '#000000';
   ctx.fillRect(3, 5, 2, 2);
-  ctx.fillRect(11, 5, 2, 2);
+  ctx.fillRect(12, 5, 2, 2); // Зрачок отцентрирован
 
   return finalizeTex(c);
 }
@@ -147,6 +164,7 @@ function makeCowLegTex() {
 
 const COW_TEX = {
   hide: makeCowHideTex(),
+  head: makeCowHeadTex(),
   face: makeCowFaceTex(),
   leg: makeCowLegTex(),
   horn: (function(){
@@ -161,12 +179,28 @@ function makePigBodyTex() {
   const px = 32;
   const c = newTexCanvas(px);
   const ctx = c.getContext('2d');
+  
+  // Розовая основа
   ctx.fillStyle = '#f0a6a6';
   ctx.fillRect(0, 0, px, px);
+  
+  // Легкий узор
   ctx.fillStyle = '#e08e8e';
-  ctx.fillRect(6, 6, 8, 8);
+  ctx.fillRect(4, 4, 8, 8);
   ctx.fillRect(18, 18, 10, 8);
-  ctx.fillRect(4, 22, 8, 6);
+  
+  return finalizeTex(c);
+}
+
+function makePigHeadTex() {
+  const px = 16;
+  const c = newTexCanvas(px);
+  const ctx = c.getContext('2d');
+  
+  // Чистый розовый для боков и затылка
+  ctx.fillStyle = '#f0a6a6';
+  ctx.fillRect(0, 0, px, px);
+  
   return finalizeTex(c);
 }
 
@@ -174,16 +208,19 @@ function makePigFaceTex() {
   const px = 16;
   const c = newTexCanvas(px);
   const ctx = c.getContext('2d');
+  
   ctx.fillStyle = '#f0a6a6';
   ctx.fillRect(0, 0, px, px);
   
-  // Глаза
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(2, 4, 3, 3);
-  ctx.fillRect(11, 4, 3, 3);
+  // Глаза (черные квадраты 2x2, ровно по центру)
   ctx.fillStyle = '#000000';
-  ctx.fillRect(3, 5, 2, 2);
-  ctx.fillRect(11, 5, 2, 2);
+  ctx.fillRect(3, 4, 2, 2);
+  ctx.fillRect(11, 4, 2, 2);
+  
+  // Белые блики (в левом верхнем углу зрачка)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(3, 4, 1, 1);
+  ctx.fillRect(11, 4, 1, 1);
   
   return finalizeTex(c);
 }
@@ -192,11 +229,15 @@ function makePigSnoutTex() {
   const px = 16;
   const c = newTexCanvas(px);
   const ctx = c.getContext('2d');
+  
   ctx.fillStyle = '#d98686';
   ctx.fillRect(0, 0, px, px);
+  
+  // Ноздри
   ctx.fillStyle = '#a64d4d';
   ctx.fillRect(3, 6, 3, 4);
   ctx.fillRect(10, 6, 3, 4);
+  
   return finalizeTex(c);
 }
 
@@ -213,6 +254,7 @@ function makePigLegTex() {
 
 const PIG_TEX = {
   body: makePigBodyTex(),
+  head: makePigHeadTex(),
   face: makePigFaceTex(),
   snout: makePigSnoutTex(),
   leg: makePigLegTex()
@@ -317,7 +359,7 @@ function makeChickenFaceTex() {
   ctx.fillStyle = '#f2f2f2';
   ctx.fillRect(0, 0, px, px);
 
-  // Черные глаза (3x3 пикселя для выразительности)
+  // Черные глаза
   ctx.fillStyle = '#000000';
   ctx.fillRect(3, 5, 3, 3);
   ctx.fillRect(10, 5, 3, 3);
@@ -395,10 +437,10 @@ const MOB_TYPES = {
     headPivot: [0, 0.75, -0.4],
     parts: [
       { w: 0.625, h: 0.5, d: 1.0, tex: PIG_TEX.body, x: 0, y: 0.625, z: 0, tag: '' },
-      { w: 0.5, h: 0.5, d: 0.5, tex: PIG_TEX.body, faceTex: PIG_TEX.face, x: 0, y: 0.75, z: -0.45, tag: 'h' },
-      { w: 0.25, h: 0.1875, d: 0.0625, tex: PIG_TEX.snout, x: 0, y: 0.75, z: -0.72, tag: 'h' },
-      { w: 0.125, h: 0.125, d: 0.0625, tex: PIG_TEX.body, x: -0.15, y: 0.95, z: -0.65, tag: 'h' },
-      { w: 0.125, h: 0.125, d: 0.0625, tex: PIG_TEX.body, x: 0.15, y: 0.95, z: -0.65, tag: 'h' },
+      { w: 0.5, h: 0.5, d: 0.5, tex: PIG_TEX.head, faceTex: PIG_TEX.face, x: 0, y: 0.75, z: -0.45, tag: 'h' },
+      { w: 0.25, h: 0.125, d: 0.0625, tex: PIG_TEX.snout, x: 0, y: 0.65, z: -0.72, tag: 'h' },
+      { w: 0.125, h: 0.125, d: 0.0625, tex: PIG_TEX.head, x: -0.15, y: 0.95, z: -0.65, tag: 'h' },
+      { w: 0.125, h: 0.125, d: 0.0625, tex: PIG_TEX.head, x: 0.15, y: 0.95, z: -0.65, tag: 'h' },
       { w: 0.25, h: 0.375, d: 0.25, tex: PIG_TEX.leg, x: -0.19, y: 0.1875, z: -0.33, tag: 'l' },
       { w: 0.25, h: 0.375, d: 0.25, tex: PIG_TEX.leg, x: 0.19, y: 0.1875, z: -0.33, tag: 'l' },
       { w: 0.25, h: 0.375, d: 0.25, tex: PIG_TEX.leg, x: -0.19, y: 0.1875, z: 0.33, tag: 'l' },
@@ -426,7 +468,7 @@ const MOB_TYPES = {
     headPivot: [0, 1.0625, -0.55],
     parts: [
       { w: 0.75, h: 0.625, d: 1.125, tex: COW_TEX.hide, x: 0, y: 1.0625, z: 0, tag: '' },
-      { w: 0.5, h: 0.5, d: 0.5, tex: COW_TEX.hide, faceTex: COW_TEX.face, x: 0, y: 1.0625, z: -0.7, tag: 'h' },
+      { w: 0.5, h: 0.5, d: 0.5, tex: COW_TEX.head, faceTex: COW_TEX.face, x: 0, y: 1.0625, z: -0.7, tag: 'h' },
       { w: 0.0625, h: 0.1875, d: 0.0625, tex: COW_TEX.horn, x: -0.2, y: 1.32, z: -0.75, tag: 'h' },
       { w: 0.0625, h: 0.1875, d: 0.0625, tex: COW_TEX.horn, x: 0.2, y: 1.32, z: -0.75, tag: 'h' },
       { w: 0.25, h: 0.75, d: 0.25, tex: COW_TEX.leg, x: -0.25, y: 0.375, z: -0.4, tag: 'l' },
@@ -440,22 +482,14 @@ const MOB_TYPES = {
     h: 0.7, r: 0.22, speed: 2.0, hp: 4,
     headPivot: [0, 0.75, -0.2],
     parts: [
-      // Тело
       { w: 0.375, h: 0.5, d: 0.375, tex: CHICKEN_TEX.body, x: 0, y: 0.5, z: 0, tag: '' },
-      // Голова (куб)
       { w: 0.25, h: 0.25, d: 0.25, tex: CHICKEN_TEX.body, faceTex: CHICKEN_TEX.face, x: 0, y: 0.75, z: -0.2, tag: 'h' },
-      // Гребешок (3D блок сверху)
       { w: 0.125, h: 0.125, d: 0.125, tex: CHICKEN_TEX.wattle, x: 0, y: 0.9, z: -0.2, tag: 'h' },
-      // Клюв (маленький оранжевый блок)
       { w: 0.125, h: 0.125, d: 0.0625, tex: CHICKEN_TEX.beak, x: 0, y: 0.75, z: -0.36, tag: 'h' },
-      // Бородка (красная под клювом, уменьшена и поднята)
       { w: 0.0625, h: 0.0625, d: 0.0625, tex: CHICKEN_TEX.wattle, x: 0, y: 0.68, z: -0.34, tag: 'h' },
-      // Крылья
       { w: 0.0625, h: 0.25, d: 0.375, tex: CHICKEN_TEX.body, x: -0.21875, y: 0.5, z: 0, tag: '' },
       { w: 0.0625, h: 0.25, d: 0.375, tex: CHICKEN_TEX.body, x: 0.21875, y: 0.5, z: 0, tag: '' },
-      // Хвост
       { w: 0.25, h: 0.1875, d: 0.0625, tex: CHICKEN_TEX.body, x: 0, y: 0.55, z: 0.21875, tag: '' },
-      // Тонкие ноги
       { w: 0.125, h: 0.25, d: 0.125, tex: CHICKEN_TEX.leg, x: -0.1, y: 0.125, z: 0.05, tag: 'l' },
       { w: 0.125, h: 0.25, d: 0.125, tex: CHICKEN_TEX.leg, x: 0.1, y: 0.125, z: 0.05, tag: 'l' }
     ]
