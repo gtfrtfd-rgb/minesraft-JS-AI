@@ -1,9 +1,5 @@
 /* ============================================================
    world.js — мир 256×256×48 с биомами и улучшенным рельефом.
-   + userData (cx, cz) на чанк-мешах для управления видимостью
-   + updateChunkVisibility(px, pz, radius)
-   + Предвычисленные UV для тайлов (ускорение buildChunk)
-   + Быстрый isSolid без лишних ветвлений
    ============================================================ */
 window.MC = window.MC || {};
 (function (MC) {
@@ -42,12 +38,10 @@ function vnoise(x, z, s) {
 }
 
 /* ============================================================
-   ТЕКСТУРЫ (импорт из textures.js)
+   ТЕКСТУРЫ
    ============================================================ */
 const atlasCanvas = MC.atlasCanvas;
-if (!atlasCanvas) {
-  console.error('[world.js] ОШИБКА: textures.js не загружен или упал!');
-}
+if (!atlasCanvas) console.error('[world.js] ОШИБКА: textures.js не загружен!');
 
 const TILE = 16, ACOLS = 4, AROWS = 4;
 
@@ -67,7 +61,7 @@ const BLOCKS = {
   4:  { name: 'Булыжник',  top: 4,  side: 4,  bottom: 4  },
   5:  { name: 'Песок',     top: 5,  side: 5,  bottom: 5  },
   6:  { name: 'Дерево',    top: 7,  side: 6,  bottom: 7  },
-  7:  { name: 'Листва',    top: 8,  side: 8,  bottom: 8  },
+  7:  { name: 'Листва',    top: 14, side: 8,  sideX: 15, bottom: 14 },
   8:  { name: 'Доски',     top: 9,  side: 9,  bottom: 9  },
   9:  { name: 'Кирпич',    top: 10, side: 10, bottom: 10 },
   10: { name: 'Стекло',    top: 11, side: 11, bottom: 11, transparent: true },
@@ -75,11 +69,13 @@ const BLOCKS = {
   12: { name: 'Обсидиан',  top: 13, side: 13, bottom: 13 }
 };
 
-/* Предвычисленный флаг transparent (быстрый доступ при обходе) */
 const BLOCK_TRANSPARENT = new Uint8Array(256);
 for (const id in BLOCKS) {
   if (BLOCKS[id].transparent) BLOCK_TRANSPARENT[id] = 1;
 }
+// ВАЖНО: Добавляем листву в список прозрачных для отсечения.
+// Благодаря этому камень за листвой поймет, что должен нарисовать свою грань.
+BLOCK_TRANSPARENT[7] = 1; 
 
 /* ============================================================
    ГЕНЕРАЦИЯ МИРА
@@ -129,9 +125,8 @@ function generateWorld(s) {
 
       for (let y = 0; y <= h; y++) {
         let b;
-        if (y === 0) {
-          b = 12;
-        } else if (y < h - 3) {
+        if (y === 0) b = 12;
+        else if (y < h - 3) {
           b = 3;
           if (biome === BIOME_MOUNTAIN && y < h - 6) {
             const rv = vnoise(x * 0.7 + y * 3.1, z * 0.7 + y * 1.3, s + 999);
@@ -166,7 +161,6 @@ function plantTrees(heights, biomes, count, targetBiome, kind) {
     if (biomes[x + z * SX] !== targetBiome) continue;
     const h = heights[x + z * SX];
     if (targetBiome === BIOME_MOUNTAIN && h > 28) continue;
-    
     const top = world[IDX(x, h, z)];
     if (top !== 1 && top !== 2 && top !== 11 && top !== 5) continue;
     
@@ -241,7 +235,12 @@ function highestAt(x, z) {
 /* ============================================================
    МЕШИ ЧАНКОВ
    ============================================================ */
-const matOpaque = new THREE.MeshBasicMaterial({ map: atlasTexture, vertexColors: true });
+const matOpaque = new THREE.MeshBasicMaterial({ 
+  map: atlasTexture, 
+  vertexColors: true,
+  alphaTest: 0.5 
+});
+
 const matTrans  = new THREE.MeshBasicMaterial({
   map: atlasTexture, vertexColors: true, transparent: true,
   depthWrite: false, side: THREE.DoubleSide
@@ -250,25 +249,19 @@ const matTrans  = new THREE.MeshBasicMaterial({
 const chunkGroup = new THREE.Group();
 
 const FACES = [
-  { d: [ 1, 0, 0], c: [[1,0,1],[1,0,0],[1,1,0],[1,1,1]], s: 0.72, k: 0 },
-  { d: [-1, 0, 0], c: [[0,0,0],[0,0,1],[0,1,1],[0,1,0]], s: 0.72, k: 0 },
-  { d: [ 0, 1, 0], c: [[0,1,1],[1,1,1],[1,1,0],[0,1,0]], s: 1.00, k: 1 },
-  { d: [ 0,-1, 0], c: [[0,0,0],[1,0,0],[1,0,1],[0,0,1]], s: 0.50, k: 2 },
-  { d: [ 0, 0, 1], c: [[0,0,1],[1,0,1],[1,1,1],[0,1,1]], s: 0.86, k: 0 },
-  { d: [ 0, 0,-1], c: [[1,0,0],[0,0,0],[0,1,0],[1,1,0]], s: 0.86, k: 0 }
+  { d: [ 1, 0, 0], c: [[1,0,1],[1,0,0],[1,1,0],[1,1,1]], s: 0.72, k: 3 }, // X+
+  { d: [-1, 0, 0], c: [[0,0,0],[0,0,1],[0,1,1],[0,1,0]], s: 0.72, k: 3 }, // X-
+  { d: [ 0, 1, 0], c: [[0,1,1],[1,1,1],[1,1,0],[0,1,0]], s: 1.00, k: 1 }, // Y+
+  { d: [ 0,-1, 0], c: [[0,0,0],[1,0,0],[1,0,1],[0,0,1]], s: 0.50, k: 2 }, // Y-
+  { d: [ 0, 0, 1], c: [[0,0,1],[1,0,1],[1,1,1],[0,1,1]], s: 0.86, k: 0 }, // Z+
+  { d: [ 0, 0,-1], c: [[1,0,0],[0,0,0],[0,1,0],[1,1,0]], s: 0.86, k: 0 }  // Z-
 ];
 const FACE_UV = [[0,0],[1,0],[1,1],[0,1]];
 
-/* Предвычисленные UV для всех 16 тайлов: [u0, u1, v0, v1] */
 const TILE_UV = new Array(ACOLS * AROWS);
 for (let t = 0; t < TILE_UV.length; t++) {
   const tc = t % ACOLS, tr = (t / ACOLS) | 0;
-  TILE_UV[t] = [
-    tc / ACOLS,
-    (tc + 1) / ACOLS,
-    1 - (tr + 1) / AROWS,
-    1 - tr / AROWS
-  ];
+  TILE_UV[t] = [ tc / ACOLS, (tc + 1) / ACOLS, 1 - (tr + 1) / AROWS, 1 - tr / AROWS ];
 }
 
 const chunks = new Map();
@@ -303,6 +296,7 @@ function buildChunk(cx, cz) {
         if (b === 0) continue;
         const def = BLOCKS[b];
         const isT = def.transparent === true;
+        const isLeaf = (b === 7);
         const D = isT ? T : O;
 
         for (let fi = 0; fi < 6; fi++) {
@@ -310,12 +304,23 @@ function buildChunk(cx, cz) {
           const nb = getBlock(x + f.d[0], y + f.d[1], z + f.d[2]);
 
           if (isT) {
+            // Стекло
             if (nb !== 0) continue;
           } else {
-            if (nb !== 0 && !BLOCK_TRANSPARENT[nb]) continue;
+            // Непрозрачные (камень, земля) и Листва (alphaTest)
+            if (nb === b) continue; // Не рисуем внутренние грани между одинаковыми блоками
+            
+            // Если сосед непрозрачный, скрываем грань.
+            // НО: если текущий блок - листва (isLeaf), мы НЕ скрываем грань, чтобы она рисовалась поверх камня.
+            if (!isLeaf && nb !== 0 && !BLOCK_TRANSPARENT[nb]) continue;
           }
 
-          const tile = f.k === 1 ? def.top : (f.k === 2 ? def.bottom : def.side);
+          let tile;
+          if (f.k === 1) tile = def.top;
+          else if (f.k === 2) tile = def.bottom;
+          else if (f.k === 3 && def.sideX !== undefined) tile = def.sideX;
+          else tile = def.side;
+
           const uv = TILE_UV[tile];
           const u0 = uv[0], u1 = uv[1], v0 = uv[2], v1 = uv[3];
           const du = u1 - u0, dv = v1 - v0;

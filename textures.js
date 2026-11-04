@@ -13,7 +13,6 @@ atlasCanvas.height = TILE * AROWS;
 const actx = atlasCanvas.getContext('2d');
 const tileImg = actx.createImageData(TILE, TILE);
 
-// Локальный генератор случайных чисел (не влияет на генерацию мира)
 let _r = 777;
 function rnd() {
   _r = (Math.imul(_r, 1103515245) + 12345) & 0x7fffffff;
@@ -40,10 +39,6 @@ function drawTile(index, fn) {
   }
   actx.putImageData(tileImg, tx, ty);
 }
-
-/* ------------------------------------------------------------
-   ГЕНЕРАЦИЯ ТАЙЛОВ
-   ------------------------------------------------------------ */
 
 // 0: Grass Top (Трава)
 drawTile(0, (x, y) => {
@@ -85,49 +80,32 @@ drawTile(3, (x, y) => {
   return nc(c, c, c, 0);
 });
 
-// 4: Cobblestone (Булыжник) — Вороной + объем
+// 4: Cobblestone (Булыжник)
 const cSeeds = [];
 for (let i = 0; i < 16; i++) {
   const gx = (i % 4) * 4 + 2;
   const gy = Math.floor(i / 4) * 4 + 2;
-  cSeeds.push({
-    x: gx + (rnd() - 0.5) * 3.0,
-    y: gy + (rnd() - 0.5) * 3.0
-  });
+  cSeeds.push({ x: gx + (rnd() - 0.5) * 3.0, y: gy + (rnd() - 0.5) * 3.0 });
 }
 
 drawTile(4, (x, y) => {
-  let d1 = 999, d2 = 999;
-  let cx = 0, cy = 0;
-  
+  let d1 = 999, d2 = 999, cx = 0, cy = 0;
   for (let i = 0; i < cSeeds.length; i++) {
     const dx = x - cSeeds[i].x;
     const dy = y - cSeeds[i].y;
     const dist = dx * dx + dy * dy;
-    if (dist < d1) {
-      d2 = d1;
-      d1 = dist;
-      cx = cSeeds[i].x;
-      cy = cSeeds[i].y;
-    } else if (dist < d2) {
-      d2 = dist;
-    }
+    if (dist < d1) { d2 = d1; d1 = dist; cx = cSeeds[i].x; cy = cSeeds[i].y; } 
+    else if (dist < d2) { d2 = dist; }
   }
-
-  if (d2 - d1 < 2.5) {
-    return nc(50, 50, 50, 15);
-  }
-
+  if (d2 - d1 < 2.5) return nc(50, 50, 50, 15);
   let c = 110 + ((Math.floor(cx) * 7 + Math.floor(cy) * 13) % 4) * 12;
   c += (rnd() - 0.5) * 12;
-
   if (d2 - d1 < 12.0) {
     if (y < cy) c += 18;
     if (y > cy) c -= 18;
     if (x < cx) c += 8;
     if (x > cx) c -= 8;
   }
-
   return nc(c, c, c, 0);
 });
 
@@ -151,20 +129,41 @@ drawTile(7, (x, y) => {
   const dx = x - 7.5, dy = y - 7.5;
   const dist = Math.sqrt(dx * dx + dy * dy);
   let v = 0;
-  if (dist > 6) {
-    return nc(108, 82, 48, 10);
-  }
+  if (dist > 6) return nc(108, 82, 48, 10);
   v = Math.sin(dist * 2.5) * 12;
   return nc(152 + v, 118 + v, 74 + v, 10);
 });
 
-// 8: Leaves (Листва)
-drawTile(8, (x, y) => {
-  let v = 0;
-  if (rnd() > 0.65) v = -35;
-  else if (rnd() > 0.85) v = 20;
-  return nc(56 + v, 128 + v, 40 + v, 25);
-});
+// --- ЛИСТВА (3 разные текстуры) ---
+function drawLeafTile(index, seed) {
+  let _lr = seed;
+  function lrnd() {
+    _lr = (Math.imul(_lr, 1103515245) + 12345) & 0x7fffffff;
+    return _lr / 0x7fffffff;
+  }
+
+  drawTile(index, (x, y) => {
+    const isEdge = (x === 0 || x === 15 || y === 0 || y === 15);
+    const r = lrnd();
+
+    // 12% настоящей прозрачности (дырки), только внутри (края плотные)
+    if (!isEdge && r < 0.12) return [0, 0, 0, 0];
+
+    // 20% темных пикселей (глубокие тени внутри кроны)
+    if (!isEdge && r < 0.32) return [25, 50, 20, 255];
+
+    // Основной цвет и блики
+    let c = 0;
+    if (r > 0.85) c = 20;
+    else c = (lrnd() - 0.5) * 15;
+
+    return nc(55 + c, 125 + c, 40 + c, 10);
+  });
+}
+
+drawLeafTile(8, 123);  // Бок (ось Z)
+drawLeafTile(14, 456); // Верх и низ
+drawLeafTile(15, 789); // Бок (ось X)
 
 // 9: Planks (Доски)
 drawTile(9, (x, y) => {
@@ -190,9 +189,7 @@ drawTile(11, (x, y) => {
 });
 
 // 12: Snow (Снег)
-drawTile(12, (x, y) => {
-  return nc(242, 246, 250, 12);
-});
+drawTile(12, (x, y) => nc(242, 246, 250, 12));
 
 // 13: Obsidian (Обсидиан)
 drawTile(13, (x, y) => {
@@ -201,9 +198,7 @@ drawTile(13, (x, y) => {
   return nc(38 + v, 28 + v, 58 + v + 10, 18);
 });
 
-// Экспортируем готовый canvas в глобальный контекст MC
 MC.atlasCanvas = atlasCanvas;
-
 console.log('[textures.js] атлас текстур сгенерирован.');
 
 })(window.MC);
