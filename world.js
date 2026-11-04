@@ -72,56 +72,120 @@ function drawTile(index, fn) {
 }
 
 _r = 777;
-drawTile(0, () => nc(92, 156, 52, 30));
-drawTile(1, (x, y) => {
-  const edge = 3 + ((x * 5 + 1) % 3);
-  if (y < edge) return nc(92, 156, 52, 26);
-  return nc(136, 98, 66, 24);
+
+// 0: Grass Top (Трава)
+drawTile(0, (x, y) => {
+  let v = 0;
+  if (rnd() > 0.85) v = -12;
+  else if (rnd() > 0.85) v = 12;
+  return nc(95 + v, 159 + v, 53 + v, 20);
 });
-drawTile(2, () => nc(136, 98, 66, 26));
-drawTile(3, () => nc(126, 126, 126, 26));
+
+// 1: Grass Side (Бок травы)
+drawTile(1, (x, y) => {
+  let v = 0;
+  const edge = 3 + ((x * 5 + 1) % 3);
+  if (y < edge) {
+    if (rnd() > 0.85) v = -12;
+    return nc(95 + v, 159 + v, 53 + v, 20);
+  } else {
+    if (rnd() > 0.85) v = -15;
+    return nc(134 + v, 96 + v, 67 + v, 22);
+  }
+});
+
+// 2: Dirt (Земля)
+drawTile(2, (x, y) => {
+  let v = 0;
+  if (rnd() > 0.85) v = -20;
+  else if (rnd() > 0.85) v = 15;
+  return nc(134 + v, 96 + v, 67 + v, 22);
+});
+
+// 3: Stone (Камень)
+drawTile(3, (x, y) => {
+  let v = 0;
+  if ((x + y * 3) % 13 === 0 || (y - x * 2) % 17 === 0) v = -18;
+  return nc(126 + v, 126 + v, 126 + v, 20);
+});
+
+// 4: Cobblestone (Булыжник)
 drawTile(4, (x, y) => {
   const gx = (x / 4) | 0, gy = (y / 4) | 0;
   const v = ((gx * 7 + gy * 13) % 5) * 9;
-  const edge = (x % 4 === 0 || y % 4 === 0) ? -18 : 0;
-  const c = 108 + (rnd() - 0.5) * 16 + v + edge;
-  return [cl(c), cl(c), cl(c)];
+  const edge = (x % 4 === 0 || y % 4 === 0) ? -25 : 0;
+  const c = 108 + v + edge;
+  return nc(c, c, c, 16);
 });
-drawTile(5, () => nc(218, 206, 158, 18));
-drawTile(6, (x) => {
-  const s = Math.sin(x * 1.9) * 9;
-  return nc(108 + s, 82 + s, 48 + s, 12);
+
+// 5: Sand (Песок)
+drawTile(5, (x, y) => {
+  let v = 0;
+  if (rnd() > 0.9) v = -15;
+  return nc(218 + v, 206 + v, 158 + v, 12);
 });
+
+// 6: Wood Side (Бок дерева)
+drawTile(6, (x, y) => {
+  let v = 0;
+  if (x % 4 === 0 || x % 4 === 1) v = -20;
+  else if (x % 4 === 3) v = 10;
+  return nc(108 + v, 82 + v, 48 + v, 12);
+});
+
+// 7: Wood Top (Срез дерева)
 drawTile(7, (x, y) => {
   const dx = x - 7.5, dy = y - 7.5;
-  const ring = Math.sin(Math.sqrt(dx*dx + dy*dy) * 2.4) * 12;
-  return nc(152 + ring, 118 + ring, 74 + ring, 10);
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  let v = 0;
+  if (dist > 6) {
+    return nc(108, 82, 48, 10);
+  }
+  v = Math.sin(dist * 2.5) * 12;
+  return nc(152 + v, 118 + v, 74 + v, 10);
 });
-drawTile(8, () => {
-  const dark = rnd() < 0.20 ? -38 : 0;
-  return nc(56 + dark, 128 + dark, 40 + dark, 34);
+
+// 8: Leaves (Листва)
+drawTile(8, (x, y) => {
+  let v = 0;
+  if (rnd() > 0.65) v = -35;
+  else if (rnd() > 0.85) v = 20;
+  return nc(56 + v, 128 + v, 40 + v, 25);
 });
+
+// 9: Planks (Доски)
 drawTile(9, (x, y) => {
   let v = 0;
-  if (y % 5 === 0) v = -34;
-  else if (((x + ((y / 5) | 0) * 7) % 11) === 0) v = -22;
+  if (y % 4 === 0) v = -30;
+  else if (((x + ((y / 4) | 0) * 7) % 8) === 0) v = -20;
   return nc(166 + v, 134 + v, 84 + v, 16);
 });
+
+// 10: Brick (Кирпич)
 drawTile(10, (x, y) => {
   const row = (y / 4) | 0;
   const off = (row % 2) * 4;
-  if (y % 4 === 0 || ((x + off) % 8) === 0) return nc(196, 190, 184, 12);
-  return nc(150, 66, 50, 16);
+  if (y % 4 === 0 || ((x + off) % 8) === 0) return nc(190, 185, 180, 10);
+  return nc(155, 70, 50, 15);
 });
+
+// 11: Glass (Стекло)
 drawTile(11, (x, y) => {
   if (x === 0 || y === 0 || x === 15 || y === 15) return [212, 236, 245, 255];
   if ((x === 2 && y < 6) || (y === 2 && x < 6)) return [238, 250, 255, 170];
   return [188, 226, 240, 55];
 });
-drawTile(12, () => nc(242, 246, 250, 10));
-drawTile(13, () => {
-  const d = (rnd() - 0.5) * 24;
-  return [cl(38 + d), cl(28 + d), cl(58 + d)];
+
+// 12: Snow (Снег)
+drawTile(12, (x, y) => {
+  return nc(242, 246, 250, 12);
+});
+
+// 13: Obsidian (Обсидиан)
+drawTile(13, (x, y) => {
+  let v = 0;
+  if (rnd() > 0.9) v = 15;
+  return nc(38 + v, 28 + v, 58 + v + 10, 18);
 });
 
 const atlasTexture = new THREE.CanvasTexture(atlasCanvas);
@@ -213,12 +277,12 @@ function generateWorld(s) {
         } else if (y < h) {
           if (biome === BIOME_DESERT)      b = 5;
           else if (biome === BIOME_SNOW)   b = 2;
-          else if (biome === BIOME_MOUNTAIN) b = 3;
+          else if (biome === BIOME_MOUNTAIN) b = (h > 28) ? 3 : 2; // Дирт под травой на склонах
           else                              b = 2;
         } else {
           if (biome === BIOME_DESERT)                    b = 5;
           else if (biome === BIOME_SNOW)                 b = 11;
-          else if (biome === BIOME_MOUNTAIN)             b = (h > 32) ? 11 : 3;
+          else if (biome === BIOME_MOUNTAIN)             b = (h > 35) ? 11 : ((h > 28) ? 3 : 1); // Снег, камень или трава
           else                                           b = 1;
         }
         world[IDX(x, y, z)] = b;
@@ -239,8 +303,11 @@ function plantTrees(heights, biomes, count, targetBiome, kind) {
     if (biomes[x + z * SX] !== targetBiome) continue;
     const h = heights[x + z * SX];
     if (targetBiome === BIOME_MOUNTAIN && h > 28) continue;
+    
     const top = world[IDX(x, h, z)];
-    if (top !== 1 && top !== 11 && top !== 3 && top !== 5) continue;
+    // Разрешаем только Трава (1), Земля (2), Снег (11) и Песок (5). Камень (3) исключён.
+    if (top !== 1 && top !== 2 && top !== 11 && top !== 5) continue;
+    
     let ok = true;
     for (let dx = -2; dx <= 2 && ok; dx++)
       for (let dz = -2; dz <= 2; dz++)
