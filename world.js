@@ -78,7 +78,7 @@ drawTile(0, (x, y) => {
   let v = 0;
   if (rnd() > 0.85) v = -12;
   else if (rnd() > 0.85) v = 12;
-  return nc(95 + v, 159 + v, 53 + v, 20);
+  return nc(75 + v, 125 + v, 45 + v, 20);
 });
 
 // 1: Grass Side (Бок травы)
@@ -87,7 +87,7 @@ drawTile(1, (x, y) => {
   const edge = 3 + ((x * 5 + 1) % 3);
   if (y < edge) {
     if (rnd() > 0.85) v = -12;
-    return nc(95 + v, 159 + v, 53 + v, 20);
+    return nc(75 + v, 125 + v, 45 + v, 20);
   } else {
     if (rnd() > 0.85) v = -15;
     return nc(134 + v, 96 + v, 67 + v, 22);
@@ -104,18 +104,62 @@ drawTile(2, (x, y) => {
 
 // 3: Stone (Камень)
 drawTile(3, (x, y) => {
-  let v = 0;
-  if ((x + y * 3) % 13 === 0 || (y - x * 2) % 17 === 0) v = -18;
-  return nc(126 + v, 126 + v, 126 + v, 20);
+  let c = 130;
+  c += (rnd() - 0.5) * 16;
+  if (rnd() > 0.88) c -= 18;
+  else if (rnd() < 0.08) c += 12;
+  if (x === y && x > 2 && x < 12) c -= 12;
+  if (x + y === 15 && x > 4 && x < 10) c -= 8;
+  return nc(c, c, c, 0);
 });
 
-// 4: Cobblestone (Булыжник)
+// 4: Cobblestone (Булыжник) — Органичные камни с помощью Вороного и блики
+const cSeeds = [];
+for (let i = 0; i < 16; i++) {
+  const gx = (i % 4) * 4 + 2;
+  const gy = Math.floor(i / 4) * 4 + 2;
+  cSeeds.push({
+    x: gx + (rnd() - 0.5) * 3.0,
+    y: gy + (rnd() - 0.5) * 3.0
+  });
+}
+
 drawTile(4, (x, y) => {
-  const gx = (x / 4) | 0, gy = (y / 4) | 0;
-  const v = ((gx * 7 + gy * 13) % 5) * 9;
-  const edge = (x % 4 === 0 || y % 4 === 0) ? -25 : 0;
-  const c = 108 + v + edge;
-  return nc(c, c, c, 16);
+  let d1 = 999, d2 = 999;
+  let cx = 0, cy = 0;
+  
+  for (let i = 0; i < cSeeds.length; i++) {
+    const dx = x - cSeeds[i].x;
+    const dy = y - cSeeds[i].y;
+    const dist = dx * dx + dy * dy;
+    if (dist < d1) {
+      d2 = d1;
+      d1 = dist;
+      cx = cSeeds[i].x;
+      cy = cSeeds[i].y;
+    } else if (dist < d2) {
+      d2 = dist;
+    }
+  }
+
+  // Темный раствор между камнями
+  if (d2 - d1 < 2.5) {
+    return nc(50, 50, 50, 15);
+  }
+
+  // Базовый цвет камня (разный оттенок для каждого)
+  let c = 110 + ((Math.floor(cx) * 7 + Math.floor(cy) * 13) % 4) * 12;
+  c += (rnd() - 0.5) * 12; // Шум
+
+  // Добавляем объем (блики и тени) ближе к краям
+  if (d2 - d1 < 12.0) {
+    if (y < cy) c += 18; // Верхний блик
+    if (y > cy) c -= 18; // Нижняя тень
+    if (x < cx) c += 8;  // Левый блик
+    if (x > cx) c -= 8;  // Правая тень
+  }
+
+  return nc(c, c, c, 0);
 });
 
 // 5: Sand (Песок)
@@ -277,12 +321,12 @@ function generateWorld(s) {
         } else if (y < h) {
           if (biome === BIOME_DESERT)      b = 5;
           else if (biome === BIOME_SNOW)   b = 2;
-          else if (biome === BIOME_MOUNTAIN) b = (h > 28) ? 3 : 2; // Дирт под травой на склонах
+          else if (biome === BIOME_MOUNTAIN) b = (h > 28) ? 3 : 2;
           else                              b = 2;
         } else {
           if (biome === BIOME_DESERT)                    b = 5;
           else if (biome === BIOME_SNOW)                 b = 11;
-          else if (biome === BIOME_MOUNTAIN)             b = (h > 35) ? 11 : ((h > 28) ? 3 : 1); // Снег, камень или трава
+          else if (biome === BIOME_MOUNTAIN)             b = (h > 35) ? 11 : ((h > 28) ? 3 : 1);
           else                                           b = 1;
         }
         world[IDX(x, y, z)] = b;
@@ -305,7 +349,6 @@ function plantTrees(heights, biomes, count, targetBiome, kind) {
     if (targetBiome === BIOME_MOUNTAIN && h > 28) continue;
     
     const top = world[IDX(x, h, z)];
-    // Разрешаем только Трава (1), Земля (2), Снег (11) и Песок (5). Камень (3) исключён.
     if (top !== 1 && top !== 2 && top !== 11 && top !== 5) continue;
     
     let ok = true;
