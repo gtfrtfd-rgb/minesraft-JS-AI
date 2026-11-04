@@ -76,6 +76,18 @@ function lockPointer() {
   renderer.domElement.requestPointerLock();
 }
 
+/* --- Полный сброс зажатых клавиш/кнопок мыши --- */
+function resetInputState() {
+  for (const k in G.keys) G.keys[k] = false;
+  G.player.crouch = false;
+  G.mouseDown[0] = false;
+  G.mouseDown[1] = false;
+  G.mouseDown[2] = false;
+  G.doubleLock.KeyW = false;
+  G.doubleLock.ArrowUp = false;
+  if (G.api.raycast) G.api.raycast.stopBreaking();
+}
+
 /* --- Пауза --- */
 function openPause() {
   if (G.dead || G.paused) return;
@@ -103,11 +115,7 @@ function exitToMainMenu() {
   if (G.dirty && G.api.save) G.api.save.saveGame();
   closePause();
   G.locked = false;
-  for (const k in G.keys) G.keys[k] = false;
-  G.player.crouch = false;
-  if (G.api.raycast) G.api.raycast.stopBreaking();
-  G.doubleLock.KeyW = false;
-  G.doubleLock.ArrowUp = false;
+  resetInputState();
   if (menu) menu.style.display = 'flex';
   if (document.pointerLockElement) {
     try { document.exitPointerLock(); } catch (e) {}
@@ -138,13 +146,18 @@ renderer.domElement.addEventListener('click', function () {
 
 document.addEventListener('pointerlockchange', function () {
   const nowLocked = document.pointerLockElement === renderer.domElement;
+  const wasLocked = G.locked;
 
-  if (G.locked && !nowLocked && settingsPanel && settingsPanel.classList.contains('open')) {
+  // Любая потеря lock — сбрасываем зажатые клавиши/кнопки мыши
+  if (wasLocked && !nowLocked) {
+    resetInputState();
+  }
+
+  if (wasLocked && !nowLocked && settingsPanel && settingsPanel.classList.contains('open')) {
     G.locked = false;
     return;
   }
 
-  const wasLocked = G.locked;
   G.locked = nowLocked;
 
   if (wasLocked && !nowLocked && !G.dead && !G.paused) {
@@ -158,13 +171,6 @@ document.addEventListener('pointerlockchange', function () {
   }
 
   if (menu) menu.style.display = (G.locked || G.dead) ? 'none' : 'flex';
-  if (!G.locked) {
-    for (const k in G.keys) G.keys[k] = false;
-    G.player.crouch = false;
-    if (G.api.raycast) G.api.raycast.stopBreaking();
-    G.doubleLock.KeyW = false;
-    G.doubleLock.ArrowUp = false;
-  }
 });
 
 document.addEventListener('mousemove', function (e) {

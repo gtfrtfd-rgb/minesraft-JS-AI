@@ -40,7 +40,6 @@ G.settings = settings;
 G.fpsLimit = G.FPS_OPTIONS[settings.fpsLimitIdx];
 G.gameMode = settings.gameMode;
 
-const settingsBtn   = document.getElementById('btn-settings');
 const settingsPanel = document.getElementById('settings-panel');
 const volSlider     = document.getElementById('set-volume');
 const volValueEl    = document.getElementById('set-volume-val');
@@ -248,12 +247,10 @@ function toggleSettings(force, opts) {
     G.wasInGameBeforeSettings = !!document.pointerLockElement;
     if (!G.locked || G.paused) settingsPanel.classList.add('menu-overlay');
     settingsPanel.classList.add('open');
-    settingsBtn.classList.add('active');
     if (document.pointerLockElement) document.exitPointerLock();
     clampSettingsPosition();
   } else {
     settingsPanel.classList.remove('open');
-    settingsBtn.classList.remove('active');
     settingsPanel.classList.remove('menu-overlay');
 
     // Если закрыли мышью (не Escape) и были в игре — пытаемся вернуть lock.
@@ -267,11 +264,6 @@ function toggleSettings(force, opts) {
   }
 }
 
-settingsBtn.addEventListener('click', function (e) {
-  e.stopPropagation();
-  toggleSettings();
-});
-
 const menuSettingsBtn = document.getElementById('menuSettingsBtn');
 if (menuSettingsBtn) {
   menuSettingsBtn.addEventListener('click', function (e) {
@@ -281,7 +273,6 @@ if (menuSettingsBtn) {
     } else {
       settingsPanel.classList.add('menu-overlay');
       settingsPanel.classList.add('open');
-      settingsBtn.classList.add('active');
       clampSettingsPosition();
     }
   });
@@ -290,7 +281,7 @@ if (menuSettingsBtn) {
 document.addEventListener('click', function (e) {
   if (G.panelJustDragged) { G.panelJustDragged = false; return; }
   if (!settingsPanel.classList.contains('open')) return;
-  if (e.target.closest && e.target.closest('#settings-panel, #btn-settings, #menuSettingsBtn')) return;
+  if (e.target.closest && e.target.closest('#settings-panel, #menuSettingsBtn')) return;
   toggleSettings(false);
 });
 

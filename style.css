@@ -732,30 +732,6 @@ canvas{display:block}
 /* ============================================================
    НАСТРОЙКИ
    ============================================================ */
-#btn-settings{
-  display:none;
-  position:fixed;top:8px;right:14px;
-  width:44px;height:44px;border-radius:12px;
-  border:1.5px solid rgba(255,255,255,.28);
-  background:rgba(20,30,40,.7);
-  color:#fff;font-size:20px;
-  align-items:center;justify-content:center;
-  cursor:pointer;z-index:16;pointer-events:auto;
-  transition:transform var(--transition-fast),
-             background var(--transition),
-             border-color var(--transition);
-  box-shadow:0 4px 14px rgba(0,0,0,.4);
-}
-#btn-settings:hover{
-  background:rgba(40,55,75,.85);
-  border-color:rgba(255,255,255,.45);
-  transform:scale(1.05);
-}
-#btn-settings.active{
-  background:rgba(126,211,72,.8);
-  border-color:#fff;
-}
-
 #settings-panel{
   position:fixed;top:64px;right:14px;
   width:340px;padding:18px 20px;

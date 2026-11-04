@@ -119,6 +119,10 @@ function buildChunksAsync(onProgress, onDone) {
         if (!loaded) playerAPI.respawn();
         if (G.player.pos.y < 0 || G.player.pos.y > G.SY) playerAPI.respawn();
 
+        // loadGame() мог переопределить G.gameMode из сохранения —
+        // синхронизируем UI настроек с фактическим режимом.
+        settingsAPI.setGameMode(G.gameMode, true);
+
         if (G.gameMode !== 'creative') G.player.fly = false;
         settingsAPI.updateHealthVisibility();
 
