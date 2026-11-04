@@ -119,8 +119,6 @@ function buildChunksAsync(onProgress, onDone) {
         if (!loaded) playerAPI.respawn();
         if (G.player.pos.y < 0 || G.player.pos.y > G.SY) playerAPI.respawn();
 
-        // loadGame() мог переопределить G.gameMode из сохранения —
-        // синхронизируем UI настроек с фактическим режимом.
         settingsAPI.setGameMode(G.gameMode, true);
 
         if (G.gameMode !== 'creative') G.player.fly = false;
@@ -176,13 +174,40 @@ function maybeUpdateChunkVisibility() {
   G.updateChunkVisibility(G.player.pos.x, G.player.pos.z, G.settings.renderDist * G.CS);
 }
 
+/* --- ОПТИМИЗАЦИЯ: обновление интерфейса раз в 100 мс --- */
+let hudTimer = 0;
+let lastHudX = 0, lastHudY = 0, lastHudZ = 0, lastHudFps = 0;
+
+function updateHUD(dt) {
+  hudTimer += dt;
+  if (hudTimer < 0.1) return; // 10 раз в секунду
+  hudTimer = 0;
+  
+  if (!infoEl) return;
+  
+  const px = G.player.pos.x;
+  const py = G.player.pos.y;
+  const pz = G.player.pos.z;
+  const fps = G.fpsVal;
+  
+  // Обновляем DOM только если значения действительно изменились
+  if (px !== lastHudX || py !== lastHudY || pz !== lastHudZ || fps !== lastHudFps) {
+    lastHudX = px; lastHudY = py; lastHudZ = pz; lastHudFps = fps;
+    const fpsLimit = G.fpsLimit;
+    infoEl.textContent =
+      'XYZ: ' + px.toFixed(1) + ' / ' + py.toFixed(1) + ' / ' + pz.toFixed(1) + '\n' +
+      'FPS: ' + fps + (fpsLimit > 0 ? '/' + fpsLimit : '') +
+      '  ·  R: ' + G.settings.renderDist +
+      '  ·  ' + (G.gameMode === 'creative' ? 'Креатив' : 'Выживание');
+  }
+}
+
 /* --- Главный update --- */
 function update(dt) {
   if (G.attackTimer > 0) G.attackTimer -= dt;
   G.updateClouds(dt, G.player.pos);
   G.updateSun(dt, G.player.pos);
 
-  // Приглушаем звуки мобов, когда мы не в игре
   if (MOBS.setMuted) MOBS.setMuted(!G.locked || G.paused);
 
   if (!G.dead && !G.paused) {
@@ -334,7 +359,6 @@ function update(dt) {
     G.sprintActive = false;
   }
 
-  // Мобы обновляются ТОЛЬКО если игрок в игре (не в меню, не на паузе и не мертв)
   if (G.locked && !G.paused && !G.dead) {
     try {
       MOBS.update(dt, G.player.pos, G.settings.renderDist * G.CS);
@@ -360,6 +384,9 @@ function update(dt) {
   raycastAPI.updateBreaking(dt);
 
   maybeUpdateChunkVisibility();
+  
+  // ОПТИМИЗАЦИЯ: Обновление HUD с троттлингом
+  updateHUD(dt);
 
   G.saveTimer += dt;
   if (G.saveTimer > 12) {
@@ -391,14 +418,6 @@ function loop(now) {
     update(dt);
   } catch (e) {
     console.error('update error', e);
-  }
-
-  if (infoEl) {
-    infoEl.textContent =
-      'XYZ: ' + G.player.pos.x.toFixed(1) + ' / ' + G.player.pos.y.toFixed(1) + ' / ' + G.player.pos.z.toFixed(1) + '\n' +
-      'FPS: ' + G.fpsVal + (fpsLimit > 0 ? '/' + fpsLimit : '') +
-      '  ·  R: ' + G.settings.renderDist +
-      '  ·  ' + (G.gameMode === 'creative' ? 'Креатив' : 'Выживание');
   }
 
   try {

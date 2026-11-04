@@ -605,30 +605,34 @@ function rebuildTextures() {
 
 function init(sc) { scene = sc; }
 
+// ОПТИМИЗАЦИЯ: объект env вынесен за пределы цикла update
+const env = {
+  playerPos: null,
+  renderDistBlocks: 6 * CS,
+  playSound: function(mob) {
+    if (soundsMuted || !playerPos || !window.SFX) return;
+    const dx = mob.pos.x - playerPos.x;
+    const dy = mob.pos.y - playerPos.y;
+    const dz = mob.pos.z - playerPos.z;
+    if (dx*dx + dy*dy + dz*dz > SOUND_MIN_DIST2) return;
+
+    const now = performance.now();
+    if (now - lastMobSoundTime < 500) return;
+    lastMobSoundTime = now;
+
+    const snd = window.SFX[mob.type];
+    if (typeof snd === 'function') snd();
+  }
+};
+
 function update(dt, pPos, renderDistanceBlocks) {
   if (pPos) playerPos = pPos;
   if (typeof renderDistanceBlocks === 'number' && renderDistanceBlocks > 0) {
     renderDistBlocks = renderDistanceBlocks;
   }
-
-  const env = {
-    playerPos: playerPos,
-    renderDistBlocks: renderDistBlocks,
-    playSound: function(mob) {
-      if (soundsMuted || !playerPos || !window.SFX) return;
-      const dx = mob.pos.x - playerPos.x;
-      const dy = mob.pos.y - playerPos.y;
-      const dz = mob.pos.z - playerPos.z;
-      if (dx*dx + dy*dy + dz*dz > SOUND_MIN_DIST2) return;
-
-      const now = performance.now();
-      if (now - lastMobSoundTime < 500) return;
-      lastMobSoundTime = now;
-
-      const snd = window.SFX[mob.type];
-      if (typeof snd === 'function') snd();
-    }
-  };
+  
+  env.playerPos = playerPos;
+  env.renderDistBlocks = renderDistBlocks;
 
   for (let i = 0; i < mobs.length; i++) {
     window.MOB_AI.update(mobs[i], dt, env);

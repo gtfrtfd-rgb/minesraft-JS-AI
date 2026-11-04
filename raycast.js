@@ -17,6 +17,10 @@ const hlBox = new THREE.LineSegments(hlGeo, hlMat);
 hlBox.visible = false;
 G.scene.add(hlBox);
 
+/* --- ОПТИМИЗАЦИЯ: переиспользуемые объекты для результатов рейкаста --- */
+const _hitResult = { x: 0, y: 0, z: 0, prev: { x: 0, y: 0, z: 0 } };
+const _hitNoPrev = { x: 0, y: 0, z: 0, prev: null };
+
 /* --- DDA-рейкаст --- */
 function raycastBlock() {
   const camera = G.camera;
@@ -26,7 +30,10 @@ function raycastBlock() {
   const RANGE = 6;
 
   let x = Math.floor(ox), y = Math.floor(oy), z = Math.floor(oz);
-  if (G.isSolid(x, y, z)) return { x: x, y: y, z: z, prev: null };
+  if (G.isSolid(x, y, z)) {
+    _hitNoPrev.x = x; _hitNoPrev.y = y; _hitNoPrev.z = z;
+    return _hitNoPrev;
+  }
 
   const stepX = dx > 0 ? 1 : (dx < 0 ? -1 : 0);
   const stepY = dy > 0 ? 1 : (dy < 0 ? -1 : 0);
@@ -67,10 +74,9 @@ function raycastBlock() {
     if (t > RANGE) return null;
 
     if (G.isSolid(x, y, z)) {
-      return {
-        x: x, y: y, z: z,
-        prev: { x: prevX, y: prevY, z: prevZ }
-      };
+      _hitResult.x = x; _hitResult.y = y; _hitResult.z = z;
+      _hitResult.prev.x = prevX; _hitResult.prev.y = prevY; _hitResult.prev.z = prevZ;
+      return _hitResult;
     }
   }
   return null;
@@ -149,8 +155,6 @@ function updateBreaking(dt) {
     if (G.gameMode === 'creative') G.creativeBrokeThisClick = true;
     stopBreaking();
 
-    // Блок только что удалён — сбрасываем таргет, чтобы подсветка
-    // не мигнула на пустом месте в этом кадре.
     G.currentTarget = null;
     if (hlBox) hlBox.visible = false;
   }
