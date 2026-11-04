@@ -23,11 +23,12 @@ const settingsPanel = document.getElementById('settings-panel');
 const hotbarEl = document.getElementById('hotbar');
 const slotEls = [];
 
-// Вспомогательная функция: вырезает нужный тайл из атласа 64x64 (4x4 по 16px)
-// и возвращает dataURL. Это гарантирует идеально чёткие иконки без захвата соседних пикселей.
+// Вспомогательная функция: вырезает нужный тайл из атласа
 function getTileDataURL(tileIndex) {
   const TILE = 16;
-  const ACOLS = 4;
+  // Берем актуальное значение ACOLS (8), иначе иконки съедут
+  const ACOLS = G.MC.ACOLS || 8; 
+  
   const col = tileIndex % ACOLS;
   const row = Math.floor(tileIndex / ACOLS);
   
@@ -73,10 +74,13 @@ function isInputFocused() {
 
 function lockPointer() {
   SFX.resume();
-  renderer.domElement.requestPointerLock();
+  try {
+    const p = renderer.domElement.requestPointerLock();
+    // Перехватываем ошибку, если браузер блокирует захват (например, после Escape)
+    if (p && p.catch) p.catch(function () {});
+  } catch (e) {}
 }
 
-/* --- Полный сброс зажатых клавиш/кнопок мыши --- */
 function resetInputState() {
   for (const k in G.keys) G.keys[k] = false;
   G.player.crouch = false;
@@ -148,7 +152,6 @@ document.addEventListener('pointerlockchange', function () {
   const nowLocked = document.pointerLockElement === renderer.domElement;
   const wasLocked = G.locked;
 
-  // Любая потеря lock — сбрасываем зажатые клавиши/кнопки мыши
   if (wasLocked && !nowLocked) {
     resetInputState();
   }

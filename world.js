@@ -43,7 +43,7 @@ function vnoise(x, z, s) {
 const atlasCanvas = MC.atlasCanvas;
 if (!atlasCanvas) console.error('[world.js] ОШИБКА: textures.js не загружен!');
 
-const TILE = 16, ACOLS = 4, AROWS = 4;
+const TILE = 16, ACOLS = MC.ACOLS, AROWS = MC.AROWS;
 
 const atlasTexture = new THREE.CanvasTexture(atlasCanvas);
 atlasTexture.magFilter = THREE.NearestFilter;
@@ -61,7 +61,7 @@ const BLOCKS = {
   4:  { name: 'Булыжник',  top: 4,  side: 4,  bottom: 4  },
   5:  { name: 'Песок',     top: 5,  side: 5,  bottom: 5  },
   6:  { name: 'Дерево',    top: 7,  side: 6,  bottom: 7  },
-  7:  { name: 'Листва',    top: 14, side: 8,  sideX: 15, bottom: 14 },
+  7:  { name: 'Листва',    top: 14, side: 8,  sideX: 15, bottom: 14 }, // Дефолт - прозрачная
   8:  { name: 'Доски',     top: 9,  side: 9,  bottom: 9  },
   9:  { name: 'Кирпич',    top: 10, side: 10, bottom: 10 },
   10: { name: 'Стекло',    top: 11, side: 11, bottom: 11, transparent: true },
@@ -73,9 +73,18 @@ const BLOCK_TRANSPARENT = new Uint8Array(256);
 for (const id in BLOCKS) {
   if (BLOCKS[id].transparent) BLOCK_TRANSPARENT[id] = 1;
 }
-// ВАЖНО: Добавляем листву в список прозрачных для отсечения.
-// Благодаря этому камень за листвой поймет, что должен нарисовать свою грань.
 BLOCK_TRANSPARENT[7] = 1; 
+
+const LEAVES_FANCY = { top: 14, side: 8, sideX: 15, bottom: 14 };
+const LEAVES_OPAQUE = { top: 17, side: 16, sideX: 18, bottom: 17 };
+
+function setLeavesTransparency(fancy) {
+  MC.fancyLeaves = fancy;
+  if (fancy) Object.assign(BLOCKS[7], LEAVES_FANCY);
+  else Object.assign(BLOCKS[7], LEAVES_OPAQUE);
+  
+  if (MC.rebuildAll) MC.rebuildAll();
+}
 
 /* ============================================================
    ГЕНЕРАЦИЯ МИРА
@@ -249,12 +258,12 @@ const matTrans  = new THREE.MeshBasicMaterial({
 const chunkGroup = new THREE.Group();
 
 const FACES = [
-  { d: [ 1, 0, 0], c: [[1,0,1],[1,0,0],[1,1,0],[1,1,1]], s: 0.72, k: 3 }, // X+
-  { d: [-1, 0, 0], c: [[0,0,0],[0,0,1],[0,1,1],[0,1,0]], s: 0.72, k: 3 }, // X-
-  { d: [ 0, 1, 0], c: [[0,1,1],[1,1,1],[1,1,0],[0,1,0]], s: 1.00, k: 1 }, // Y+
-  { d: [ 0,-1, 0], c: [[0,0,0],[1,0,0],[1,0,1],[0,0,1]], s: 0.50, k: 2 }, // Y-
-  { d: [ 0, 0, 1], c: [[0,0,1],[1,0,1],[1,1,1],[0,1,1]], s: 0.86, k: 0 }, // Z+
-  { d: [ 0, 0,-1], c: [[1,0,0],[0,0,0],[0,1,0],[1,1,0]], s: 0.86, k: 0 }  // Z-
+  { d: [ 1, 0, 0], c: [[1,0,1],[1,0,0],[1,1,0],[1,1,1]], s: 0.72, k: 3 },
+  { d: [-1, 0, 0], c: [[0,0,0],[0,0,1],[0,1,1],[0,1,0]], s: 0.72, k: 3 },
+  { d: [ 0, 1, 0], c: [[0,1,1],[1,1,1],[1,1,0],[0,1,0]], s: 1.00, k: 1 },
+  { d: [ 0,-1, 0], c: [[0,0,0],[1,0,0],[1,0,1],[0,0,1]], s: 0.50, k: 2 },
+  { d: [ 0, 0, 1], c: [[0,0,1],[1,0,1],[1,1,1],[0,1,1]], s: 0.86, k: 0 },
+  { d: [ 0, 0,-1], c: [[1,0,0],[0,0,0],[0,1,0],[1,1,0]], s: 0.86, k: 0 }
 ];
 const FACE_UV = [[0,0],[1,0],[1,1],[0,1]];
 
@@ -304,14 +313,9 @@ function buildChunk(cx, cz) {
           const nb = getBlock(x + f.d[0], y + f.d[1], z + f.d[2]);
 
           if (isT) {
-            // Стекло
             if (nb !== 0) continue;
           } else {
-            // Непрозрачные (камень, земля) и Листва (alphaTest)
-            if (nb === b) continue; // Не рисуем внутренние грани между одинаковыми блоками
-            
-            // Если сосед непрозрачный, скрываем грань.
-            // НО: если текущий блок - листва (isLeaf), мы НЕ скрываем грань, чтобы она рисовалась поверх камня.
+            if (nb === b) continue; 
             if (!isLeaf && nb !== 0 && !BLOCK_TRANSPARENT[nb]) continue;
           }
 
@@ -408,6 +412,7 @@ MC.SAVE_KEY = SAVE_KEY;
 
 MC.BLOCKS = BLOCKS;
 MC.ACOLS = ACOLS;
+MC.AROWS = AROWS;
 MC.atlasTexture = atlasTexture;
 
 MC.chunkGroup = chunkGroup;
@@ -421,6 +426,7 @@ MC.buildAllChunks = buildAllChunks;
 MC.rebuildAround = rebuildAround;
 MC.rebuildAll = rebuildAll;
 MC.updateChunkVisibility = updateChunkVisibility;
+MC.setLeavesTransparency = setLeavesTransparency;
 
 console.log('[world.js] готов. Размер:', SX, '×', SZ, '×', SY, '=', (SX * SZ * SY / 1000000).toFixed(2), 'млн блоков');
 

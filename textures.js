@@ -1,12 +1,13 @@
 /* ============================================================
-   textures.js — процедурная генерация текстур блоков (атлас 64x64).
+   textures.js — процедурная генерация текстур блоков.
    Изолирован от логики мира, экспортирует готовый canvas.
    ============================================================ */
 window.MC = window.MC || {};
 (function (MC) {
 'use strict';
 
-const TILE = 16, ACOLS = 4, AROWS = 4;
+// Увеличиваем атлас до 8x8, чтобы вместить разные варианты листвы
+const TILE = 16, ACOLS = 8, AROWS = 8;
 const atlasCanvas = document.createElement('canvas');
 atlasCanvas.width  = TILE * ACOLS;
 atlasCanvas.height = TILE * AROWS;
@@ -134,36 +135,48 @@ drawTile(7, (x, y) => {
   return nc(152 + v, 118 + v, 74 + v, 10);
 });
 
-// --- ЛИСТВА (3 разные текстуры) ---
+// --- ЛИСТВА (Прозрачные) ---
 function drawLeafTile(index, seed) {
   let _lr = seed;
   function lrnd() {
     _lr = (Math.imul(_lr, 1103515245) + 12345) & 0x7fffffff;
     return _lr / 0x7fffffff;
   }
-
   drawTile(index, (x, y) => {
     const isEdge = (x === 0 || x === 15 || y === 0 || y === 15);
     const r = lrnd();
-
-    // 12% настоящей прозрачности (дырки), только внутри (края плотные)
     if (!isEdge && r < 0.12) return [0, 0, 0, 0];
-
-    // 20% темных пикселей (глубокие тени внутри кроны)
     if (!isEdge && r < 0.32) return [25, 50, 20, 255];
-
-    // Основной цвет и блики
     let c = 0;
     if (r > 0.85) c = 20;
     else c = (lrnd() - 0.5) * 15;
-
     return nc(55 + c, 125 + c, 40 + c, 10);
   });
 }
-
 drawLeafTile(8, 123);  // Бок (ось Z)
 drawLeafTile(14, 456); // Верх и низ
 drawLeafTile(15, 789); // Бок (ось X)
+
+// --- ЛИСТВА (Непрозрачные) ---
+function drawOpaqueLeafTile(index, seed) {
+  let _lr = seed;
+  function lrnd() {
+    _lr = (Math.imul(_lr, 1103515245) + 12345) & 0x7fffffff;
+    return _lr / 0x7fffffff;
+  }
+  drawTile(index, (x, y) => {
+    const r = lrnd();
+    let c = 0;
+    // "Дырки" закрашиваются темно-зеленым, чтобы создать иллюзию глубины
+    if (r < 0.32) c = -30; 
+    else if (r > 0.85) c = 20;
+    else c = (lrnd() - 0.5) * 15;
+    return nc(55 + c, 125 + c, 40 + c, 10);
+  });
+}
+drawOpaqueLeafTile(16, 123);  // Бок (ось Z)
+drawOpaqueLeafTile(17, 456);  // Верх и низ
+drawOpaqueLeafTile(18, 789);  // Бок (ось X)
 
 // 9: Planks (Доски)
 drawTile(9, (x, y) => {
@@ -199,6 +212,9 @@ drawTile(13, (x, y) => {
 });
 
 MC.atlasCanvas = atlasCanvas;
-console.log('[textures.js] атлас текстур сгенерирован.');
+MC.ACOLS = ACOLS;
+MC.AROWS = AROWS;
+
+console.log('[textures.js] атлас текстур сгенерирован (8x8).');
 
 })(window.MC);

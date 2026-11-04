@@ -34,6 +34,7 @@ const G = {
   buildChunk: MC.buildChunk,
   rebuildAround: MC.rebuildAround,
   updateChunkVisibility: MC.updateChunkVisibility,
+  setLeavesTransparency: MC.setLeavesTransparency, // ВАЖНО: экспорт для настроек
 
   /* render.js */
   BASE_FOV:   R.BASE_FOV,

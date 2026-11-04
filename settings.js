@@ -11,7 +11,7 @@ if (!G) return;
 const SFX = G.SFX;
 
 const SETTINGS_KEY = 'mcweb_settings_v2';
-const DEFAULT_SETTINGS = { volume: 1, renderDist: 6, fpsLimitIdx: 2, gameMode: 'survival' };
+const DEFAULT_SETTINGS = { volume: 1, renderDist: 6, fpsLimitIdx: 2, gameMode: 'survival', fancyLeaves: true };
 
 function loadSettings() {
   try {
@@ -22,7 +22,8 @@ function loadSettings() {
       volume: typeof d.volume === 'number' ? d.volume : 1,
       renderDist: typeof d.renderDist === 'number' ? d.renderDist : 6,
       fpsLimitIdx: typeof d.fpsLimitIdx === 'number' ? d.fpsLimitIdx : 2,
-      gameMode: d.gameMode === 'creative' ? 'creative' : 'survival'
+      gameMode: d.gameMode === 'creative' ? 'creative' : 'survival',
+      fancyLeaves: d.fancyLeaves !== false
     };
   } catch (e) { return Object.assign({}, DEFAULT_SETTINGS); }
 }
@@ -94,6 +95,38 @@ fpsSlider.addEventListener('input', function () {
 });
 
 /* ------------------------------------------------------------
+   ПРОЗРАЧНОСТЬ ЛИСТВЫ
+   ------------------------------------------------------------ */
+const leavesRow = document.createElement('label');
+leavesRow.className = 'setting-row';
+leavesRow.innerHTML = 
+  '<span class="setting-label">Прозрачная листва</span>' +
+  '<span class="setting-toggle">' +
+    '<input type="checkbox" id="set-leaves">' +
+    '<span class="toggle-track"><span class="toggle-knob"></span></span>' +
+  '</span>';
+
+const leavesCheckbox = leavesRow.querySelector('#set-leaves');
+leavesCheckbox.checked = settings.fancyLeaves;
+
+const firstHint = settingsPanel.querySelector('.settings-hint');
+if (firstHint) settingsPanel.insertBefore(leavesRow, firstHint);
+else settingsPanel.appendChild(leavesRow);
+
+leavesCheckbox.addEventListener('change', function () {
+  settings.fancyLeaves = leavesCheckbox.checked;
+  saveSettings(settings);
+  if (G.setLeavesTransparency) {
+    G.setLeavesTransparency(settings.fancyLeaves);
+  }
+});
+
+// Применяем при старте
+if (G.setLeavesTransparency) {
+  G.setLeavesTransparency(settings.fancyLeaves);
+}
+
+/* ------------------------------------------------------------
    РЕЖИМ ИГРЫ
    ------------------------------------------------------------ */
 const modeBtn = document.createElement('button');
@@ -119,7 +152,6 @@ modeLabel.textContent = 'Режим игры';
 modeRow.appendChild(modeLabel);
 modeRow.appendChild(modeBtn);
 
-const firstHint = settingsPanel.querySelector('.settings-hint');
 if (firstHint) settingsPanel.insertBefore(modeRow, firstHint);
 else settingsPanel.appendChild(modeRow);
 
@@ -253,8 +285,6 @@ function toggleSettings(force, opts) {
     settingsPanel.classList.remove('open');
     settingsPanel.classList.remove('menu-overlay');
 
-    // Если закрыли мышью (не Escape) и были в игре — пытаемся вернуть lock.
-    // После Escape Chrome блокирует requestPointerLock — не пытаемся.
     if (!opts.fromEscape &&
         G.wasInGameBeforeSettings && !G.dead && !G.paused &&
         G.api.input && G.api.input.lockPointer) {
