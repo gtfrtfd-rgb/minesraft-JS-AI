@@ -34,7 +34,7 @@ const G = {
   buildChunk: MC.buildChunk,
   rebuildAround: MC.rebuildAround,
   updateChunkVisibility: MC.updateChunkVisibility,
-  setLeavesTransparency: MC.setLeavesTransparency, // ВАЖНО: экспорт для настроек
+  setLeavesTransparency: MC.setLeavesTransparency,
 
   /* render.js */
   BASE_FOV:   R.BASE_FOV,
@@ -171,7 +171,9 @@ const G = {
     if (!s.flyOff) s.flyOff = function () {};
     if (!s.hurt)   s.hurt   = function () {};
     if (!s.death)  s.death  = function () {};
-    if (!s.hit)    s.hit    = function () {}; // Заглушка для звука удара
+    if (!s.hit)    s.hit    = function () {};
+    if (!s.mobHurt) s.mobHurt = function () {};
+    if (!s.mobDeath) s.mobDeath = function () {};
     if (!s.setVolume) s.setVolume = function () {};
     if (!s.getVolume) s.getVolume = function () { return 1; };
     G.SFX = s;
@@ -182,6 +184,7 @@ const G = {
   G.SFX = {
     resume: noop, break: noop, place: noop, step: noop, jump: noop,
     select: noop, flyOn: noop, flyOff: noop, hurt: noop, death: noop, hit: noop,
+    mobHurt: noop, mobDeath: noop,
     setVolume: noop, getVolume: function () { return 1; }
   };
 })();

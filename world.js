@@ -61,7 +61,7 @@ const BLOCKS = {
   4:  { name: 'Булыжник',  top: 4,  side: 4,  bottom: 4  },
   5:  { name: 'Песок',     top: 5,  side: 5,  bottom: 5  },
   6:  { name: 'Дерево',    top: 7,  side: 6,  bottom: 7  },
-  7:  { name: 'Листва',    top: 14, side: 8,  sideX: 15, bottom: 14 }, // Дефолт - прозрачная
+  7:  { name: 'Листва',    top: 14, side: 8,  sideX: 15, bottom: 14 },
   8:  { name: 'Доски',     top: 9,  side: 9,  bottom: 9  },
   9:  { name: 'Кирпич',    top: 10, side: 10, bottom: 10 },
   10: { name: 'Стекло',    top: 11, side: 11, bottom: 11, transparent: true },
@@ -313,7 +313,8 @@ function buildChunk(cx, cz) {
           const nb = getBlock(x + f.d[0], y + f.d[1], z + f.d[2]);
 
           if (isT) {
-            if (nb !== 0) continue;
+            // ИСПРАВЛЕНО: грань скрываем только если сосед тоже прозрачный
+            if (nb !== 0 && BLOCK_TRANSPARENT[nb] === 1) continue;
           } else {
             if (nb === b) continue; 
             if (!isLeaf && nb !== 0 && !BLOCK_TRANSPARENT[nb]) continue;
