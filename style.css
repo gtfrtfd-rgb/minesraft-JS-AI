@@ -279,8 +279,9 @@ canvas{display:block}
   text-transform:uppercase;font-weight:500;color:#c8d4e0;
 }
 
+/* --- КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: убрали display:flex --- */
 .menu-cards{
-  display:flex;gap:16px;margin-bottom:26px;width:100%;justify-content:center;
+  gap:16px;margin-bottom:26px;width:100%;justify-content:center;
   animation:cardsIn .7s cubic-bezier(.34,1.56,.64,1) .1s backwards;
 }
 @keyframes cardsIn{
@@ -325,21 +326,11 @@ canvas{display:block}
   color:#d8dfe8;
 }
 
-/* --- Переключение карточек управления: ПК / мобильный ---
-   Класс is-touch / is-desktop ставится инлайн-скриптом в <head>
-   ДО первой отрисовки — никакого мигания и никаких медиа-запросов,
-   которые могут не сработать в некоторых браузерах/эмуляторах. */
-.only-mobile { display: none; }
-
-html.is-touch .only-desktop { display: none !important; }
-html.is-touch .only-mobile  { display: flex !important; }
-
-html.is-desktop .only-desktop { display: flex; }
-html.is-desktop .only-mobile  { display: none !important; }
-
 /* На тач-устройстве подписи «клавиш» длиннее — чуть компактнее */
-html.is-touch .only-mobile .ctrl-key  { font-size: 10px; padding: 4px 7px; letter-spacing: .3px; }
-html.is-touch .only-mobile .ctrl-desc { font-size: 11px; }
+@media (pointer: coarse) {
+  .only-mobile .ctrl-key { font-size: 10px; padding: 4px 7px; letter-spacing: .3px; }
+  .only-mobile .ctrl-desc { font-size: 11px; }
+}
 
 .menu-buttons{
   display:flex;gap:14px;margin-bottom:22px;

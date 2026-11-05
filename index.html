@@ -4,15 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Minecraft Web</title>
+<style>
+  /* По умолчанию скрываем ОБЕ карточки, пока JS не выберет нужную */
+  .only-desktop, .only-mobile { display: none; }
+</style>
+<link rel="stylesheet" href="style.css">
 <script>
-  /* Определяем тач ДО первой отрисовки — избегаем мигания обеих карточек.
-     Класс на <html>, чтобы CSS мог переключать блоки управления. */
+  /* Определяем тач и принудительно показываем только одну карточку */
   (function () {
     var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-    document.documentElement.classList.add(isTouch ? 'is-touch' : 'is-desktop');
+    var style = document.createElement('style');
+    style.textContent = isTouch
+      ? '.only-mobile { display: flex !important; }'
+      : '.only-desktop { display: flex !important; }';
+    document.head.appendChild(style);
   })();
 </script>
-<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
