@@ -325,6 +325,16 @@ canvas{display:block}
   color:#d8dfe8;
 }
 
+/* --- Переключение карточек управления: ПК / мобильный --- */
+.only-mobile { display: none; }
+@media (pointer: coarse) {
+  .menu-cards.only-desktop { display: none !important; }
+  .menu-cards.only-mobile  { display: flex; }
+  /* На тач-устройстве подписи клавиш длиннее — чуть компактнее */
+  .only-mobile .ctrl-key { font-size: 10px; padding: 4px 7px; letter-spacing: .3px; }
+  .only-mobile .ctrl-desc { font-size: 11px; }
+}
+
 .menu-buttons{
   display:flex;gap:14px;margin-bottom:22px;
   animation:cardsIn .7s cubic-bezier(.34,1.56,.64,1) .2s backwards;
