@@ -412,7 +412,7 @@ btnPlace.addEventListener('touchstart', function (e) {
 /* ============================================================
    Обзор (look drag на канвасе)
    ============================================================ */
-const LOOK_SENS = 0.0045;
+const LOOK_SENS = 0.0085; // Увеличено с 0.0045 для более комфортной игры на телефоне
 let lookTouchId = null;
 let lookLastX = 0, lookLastY = 0;
 
