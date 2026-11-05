@@ -9,7 +9,10 @@ const G = window.GAME;
 if (!G) return;
 
 const SFX = G.SFX;
-const isTouchDevice = document.documentElement.classList.contains('is-touch');
+
+// Проверяем, нужно ли включать полноэкранный мобильный режим
+// (если устройство тач, ИЛИ экран слишком узкий)
+const isMobileLayout = () => window.innerWidth <= 720 || document.documentElement.classList.contains('is-touch');
 
 const SETTINGS_KEY = 'mcweb_settings_v2';
 const DEFAULT_SETTINGS = { volume: 1, renderDist: 6, fpsLimitIdx: 2, gameMode: 'survival', fancyLeaves: true };
@@ -253,7 +256,7 @@ document.addEventListener('webkitfullscreenchange', function () {
 
 /* --- Открытие/закрытие панели --- */
 function clampSettingsPosition() {
-  if (isTouchDevice) return; // На телефоне панель всегда на весь экран
+  if (isMobileLayout()) return; // На мобильном панель всегда на весь экран
   if (!settingsPanel.style.left) return;
   const r = settingsPanel.getBoundingClientRect();
   let x = parseFloat(settingsPanel.style.left);
@@ -281,6 +284,14 @@ function toggleSettings(force, opts) {
   if (shouldOpen) {
     G.wasInGameBeforeSettings = !!document.pointerLockElement;
     if (!G.locked || G.paused) settingsPanel.classList.add('menu-overlay');
+    
+    // Сбрасываем инлайн-стили, чтобы на мобильных панель развернулась на весь экран
+    if (isMobileLayout()) {
+      settingsPanel.style.left = '';
+      settingsPanel.style.top = '';
+      settingsPanel.style.right = '';
+    }
+
     settingsPanel.classList.add('open');
     if (document.pointerLockElement) document.exitPointerLock();
     clampSettingsPosition();
@@ -333,7 +344,14 @@ document.addEventListener('keydown', function (e) {
 
 const settingsDragHandle = document.getElementById('settings-drag');
 
-window.addEventListener('resize', clampSettingsPosition);
+window.addEventListener('resize', function() {
+    if (isMobileLayout()) {
+        settingsPanel.style.left = '';
+        settingsPanel.style.top = '';
+        settingsPanel.style.right = '';
+    }
+    clampSettingsPosition();
+});
 
 if (settingsDragHandle) {
   let dragging = false;
@@ -348,7 +366,7 @@ if (settingsDragHandle) {
   }
 
   settingsDragHandle.addEventListener('mousedown', function (e) {
-    if (isTouchDevice) return; // Не тащим на мобилке
+    if (isMobileLayout()) return; // Не тащим на мобилке/узком экране
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
