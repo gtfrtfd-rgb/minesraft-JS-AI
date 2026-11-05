@@ -1,6 +1,6 @@
 /* ============================================================
    sounds.js — процедурные звуки на Web Audio API (без файлов)
-   Версия 3.2: Увеличенная громкость звуков ломания, особенно земли.
+   Версия 3.3: Органичный, мягкий звук земли (без синтетики).
    ============================================================ */
 window.SFX = (function () {
 'use strict';
@@ -76,7 +76,7 @@ function makeNoiseBuffer(seconds, decay, crackle, crackleRate) {
     const t = i / len;
     let v = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
     if (crackle && Math.random() < crackleRate) {
-      v += (Math.random() * 2 - 1) * 1.8;
+      v += (Math.random() * 2 - 1) * 1.4;
     }
     if (v > 1) v = 1; else if (v < -1) v = -1;
     d[i] = v;
@@ -225,7 +225,7 @@ function matName(id) {
 }
 
 /* ============================================================
-   ЗВУК УДАРА ПРИ ДОБЫЧЕ (ГРОМКИЙ)
+   ЗВУК УДАРА ПРИ ДОБЫЧЕ
    ============================================================ */
 function sndHit(id) {
   const m = matName(id);
@@ -236,9 +236,19 @@ function sndHit(id) {
     return;
   }
   if (m === 'dirt') {
-    // Очень тяжелый и громкий удар для земли
-    playNoise({ duration: 0.08, decay: 3.0, granular: true, density: 0.2, filterType: 'lowpass', freq: 1000 * p, gain: 0.30 });
-    playTone({ type: 'sine', f0: 100 * p, f1: 50, duration: 0.04, gain: 0.12 });
+    // Мягкий, землистый удар: короткое тело + широкий полосовой шум с лёгким хрустом
+    playTone({ type: 'triangle', f0: 170 * p, f1: 80, duration: 0.05, gain: 0.18 });
+    playNoise({
+      duration: 0.07,
+      decay: 2.8,
+      filterType: 'bandpass',
+      freq: 800 * p,
+      freqEnd: 400,
+      Q: 1.0,
+      gain: 0.32,
+      crackle: true,
+      crackleRate: 0.05
+    });
     return;
   }
   if (m === 'sand') {
@@ -267,7 +277,7 @@ function sndHit(id) {
 }
 
 /* ============================================================
-   ЗВУКИ ЛОМАНИЯ (ГРОМКИЕ И МОЩНЫЕ)
+   ЗВУКИ ЛОМАНИЯ
    ============================================================ */
 function sndBreak(id) {
   const m = matName(id);
@@ -280,10 +290,31 @@ function sndBreak(id) {
     return;
   }
   if (m === 'dirt') {
-    // Мощный низкочастотный удар + очень громкое осыпание
-    playTone({ type: 'sine', f0: 120 * p, f1: 50, duration: 0.10, gain: 0.40 });
-    playNoise({ duration: 0.20, decay: 2.5, granular: true, density: 0.2, filterType: 'lowpass', freq: 1200 * p, freqEnd: 300, gain: 0.60 });
-    playNoise({ duration: 0.15, decay: 3.0, filterType: 'bandpass', freq: 600 * p, Q: 1.2, gain: 0.25, when: 0.01 });
+    // Земля: сочный мягкий "шлепок" с осыпанием
+    // 1. Тело — короткий треугольный удар (не «саб», а именно плоть комка земли)
+    playTone({ type: 'triangle', f0: 200 * p, f1: 90, duration: 0.07, gain: 0.30 });
+    // 2. Основное осыпание — широкий bandpass с естественным лёгким хрустом
+    playNoise({
+      duration: 0.15,
+      decay: 2.4,
+      filterType: 'bandpass',
+      freq: 750 * p,
+      freqEnd: 280,
+      Q: 0.8,
+      gain: 0.50,
+      crackle: true,
+      crackleRate: 0.04
+    });
+    // 3. Пыльный хвост — мягкий lowpass-шум, чтобы звук «дышал»
+    playNoise({
+      duration: 0.22,
+      decay: 3.0,
+      filterType: 'lowpass',
+      freq: 1600 * p,
+      freqEnd: 400,
+      gain: 0.18,
+      when: 0.01
+    });
     return;
   }
   if (m === 'sand') {
