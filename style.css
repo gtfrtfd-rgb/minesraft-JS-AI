@@ -325,15 +325,21 @@ canvas{display:block}
   color:#d8dfe8;
 }
 
-/* --- Переключение карточек управления: ПК / мобильный --- */
+/* --- Переключение карточек управления: ПК / мобильный ---
+   Класс is-touch / is-desktop ставится инлайн-скриптом в <head>
+   ДО первой отрисовки — никакого мигания и никаких медиа-запросов,
+   которые могут не сработать в некоторых браузерах/эмуляторах. */
 .only-mobile { display: none; }
-@media (pointer: coarse) {
-  .menu-cards.only-desktop { display: none !important; }
-  .menu-cards.only-mobile  { display: flex; }
-  /* На тач-устройстве подписи клавиш длиннее — чуть компактнее */
-  .only-mobile .ctrl-key { font-size: 10px; padding: 4px 7px; letter-spacing: .3px; }
-  .only-mobile .ctrl-desc { font-size: 11px; }
-}
+
+html.is-touch .only-desktop { display: none !important; }
+html.is-touch .only-mobile  { display: flex !important; }
+
+html.is-desktop .only-desktop { display: flex; }
+html.is-desktop .only-mobile  { display: none !important; }
+
+/* На тач-устройстве подписи «клавиш» длиннее — чуть компактнее */
+html.is-touch .only-mobile .ctrl-key  { font-size: 10px; padding: 4px 7px; letter-spacing: .3px; }
+html.is-touch .only-mobile .ctrl-desc { font-size: 11px; }
 
 .menu-buttons{
   display:flex;gap:14px;margin-bottom:22px;
