@@ -2,9 +2,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "обновляяю-three.js" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "обновляяю-three.js" ]
 
 # Разрешаем воркфлоу делать публикации на GitHub Pages
 permissions:
@@ -24,7 +24,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     # Деплой только для ветки main
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/обновляяю-three.js'
 
     steps:
       - name: Checkout code
