@@ -1,7 +1,6 @@
 /* ============================================================
    sounds.js — процедурные звуки на Web Audio API (без файлов)
-   + Низкая задержка на мобильных
-   + Пул кэшированных буферов шума (не создаём сэмплы каждый раз)
+   Версия 3.2: Увеличенная громкость звуков ломания, особенно земли.
    ============================================================ */
 window.SFX = (function () {
 'use strict';
@@ -9,7 +8,6 @@ window.SFX = (function () {
 let ctx = null;
 let masterGain = null;
 let masterVolume = 1;
-let unlocked = false;
 
 function createCtx() {
   try {
@@ -18,7 +16,7 @@ function createCtx() {
     try { ctx = new Ctor({ latencyHint: 'interactive' }); }
     catch (e) { ctx = new Ctor(); }
   } catch (e) {
-    console.warn('[sounds.js] нет AudioContext', e);
+    console.warn('[sounds.js] Web Audio API не поддерживается', e);
     ctx = null;
   }
   return ctx;
@@ -35,9 +33,7 @@ function resume() {
   if (!c) return;
   if (c.state === 'suspended') {
     const p = c.resume();
-    if (p && p.then) p.then(function () { unlocked = true; });
-  } else {
-    unlocked = true;
+    if (p && p.then) p.then(function () {});
   }
   try {
     const b = c.createBuffer(1, 1, c.sampleRate);
@@ -64,28 +60,43 @@ function setVolume(v) {
 }
 function getVolume() { return masterVolume; }
 
-/* ------------------------------------------------------------
-   Пул буферов шума. Раньше каждый вызов создавал 8000–40000
-   сэмплов Math.random() — это занимало 100–500 мкс на звук.
-   Теперь — предсозданный пул из 4 вариантов, ключ:
-   "тип:длительность:decay" (+ crackleRate для crackle).
-   ------------------------------------------------------------ */
+/* ============================================================
+   ГЕНЕРАЦИЯ ШУМА (КЭШИРОВАНИЕ)
+   ============================================================ */
 const NOISE_POOL = new Map();
-const POOL_SIZE = 4;
+const POOL_SIZE = 8;
 
 function makeNoiseBuffer(seconds, decay, crackle, crackleRate) {
   const c = getCtx(); if (!c) return null;
   const len = Math.max(1, Math.floor(c.sampleRate * seconds));
   const buf = c.createBuffer(1, len, c.sampleRate);
   const d = buf.getChannelData(0);
+  
   for (let i = 0; i < len; i++) {
     const t = i / len;
     let v = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
     if (crackle && Math.random() < crackleRate) {
-      v += (Math.random() * 2 - 1) * 1.4;
-      if (v > 1) v = 1; else if (v < -1) v = -1;
+      v += (Math.random() * 2 - 1) * 1.8;
     }
+    if (v > 1) v = 1; else if (v < -1) v = -1;
     d[i] = v;
+  }
+  return buf;
+}
+
+function makeGranularBuffer(seconds, density) {
+  const c = getCtx(); if (!c) return null;
+  const len = Math.max(1, Math.floor(c.sampleRate * seconds));
+  const buf = c.createBuffer(1, len, c.sampleRate);
+  const d = buf.getChannelData(0);
+  
+  for (let i = 0; i < len; i++) {
+    const t = i / len;
+    let v = 0;
+    if (Math.random() < density) {
+      v = (Math.random() * 2 - 1) * 0.8;
+    }
+    d[i] = v * Math.pow(1 - t, 2.0);
   }
   return buf;
 }
@@ -106,21 +117,40 @@ function getCachedNoise(seconds, decay, crackle, crackleRate) {
   return pool[(Math.random() * POOL_SIZE) | 0];
 }
 
-/* ------------------------------------------------------------
-   Планирование с 3 мс запасом (первый буфер после resume).
-   ------------------------------------------------------------ */
+const GRANULAR_POOL = new Map();
+function getGranularNoise(seconds, density) {
+  const key = 'g:' + seconds + ':' + density;
+  let pool = GRANULAR_POOL.get(key);
+  if (!pool) {
+    pool = new Array(POOL_SIZE);
+    for (let i = 0; i < POOL_SIZE; i++) {
+      pool[i] = makeGranularBuffer(seconds, density);
+    }
+    GRANULAR_POOL.set(key, pool);
+  }
+  return pool[(Math.random() * POOL_SIZE) | 0];
+}
+
+/* ============================================================
+   БАЗОВЫЕ ПЛЕЙЕРЫ
+   ============================================================ */
 const SCHEDULE_LEAD = 0.003;
 
 function playNoise(o) {
   const c = getCtx(); if (!c) return;
   const master = getMaster(); if (!master) return;
+  
   const duration = o.duration != null ? o.duration : 0.15;
-  const decay    = o.decay    != null ? o.decay    : 2.5;
   const gain     = o.gain     != null ? o.gain     : 0.2;
   const attack   = o.attack   != null ? o.attack   : 0.003;
   const when     = o.when     != null ? o.when     : 0;
 
-  const buf = getCachedNoise(duration, decay, !!o.crackle, o.crackleRate || 0.08);
+  let buf;
+  if (o.granular) {
+    buf = getGranularNoise(duration, o.density || 0.15);
+  } else {
+    buf = getCachedNoise(duration, o.decay || 2.5, !!o.crackle, o.crackleRate || 0.08);
+  }
   if (!buf) return;
 
   const src = c.createBufferSource();
@@ -129,9 +159,11 @@ function playNoise(o) {
   const filt = c.createBiquadFilter();
   filt.type = o.filterType || 'lowpass';
   filt.Q.value = o.Q != null ? o.Q : 1;
+  
   const t0 = c.currentTime + when + SCHEDULE_LEAD;
   const f0 = o.freq != null ? o.freq : 1000;
   filt.frequency.setValueAtTime(f0, t0);
+  
   if (o.freqEnd != null) {
     filt.frequency.exponentialRampToValueAtTime(Math.max(40, o.freqEnd), t0 + duration);
   }
@@ -143,12 +175,13 @@ function playNoise(o) {
 
   src.connect(filt).connect(g).connect(master);
   src.start(t0);
-  src.stop(t0 + duration + 0.03);
+  src.stop(t0 + duration + 0.05);
 }
 
 function playTone(o) {
   const c = getCtx(); if (!c) return;
   const master = getMaster(); if (!master) return;
+  
   const duration = o.duration != null ? o.duration : 0.1;
   const gain     = o.gain     != null ? o.gain     : 0.15;
   const attack   = o.attack   != null ? o.attack   : 0.005;
@@ -156,9 +189,11 @@ function playTone(o) {
 
   const osc = c.createOscillator();
   osc.type = o.type || 'sine';
+  
   const t0 = c.currentTime + when + SCHEDULE_LEAD;
   const f0 = o.f0 != null ? o.f0 : 440;
   osc.frequency.setValueAtTime(f0, t0);
+  
   if (o.f1 != null) {
     osc.frequency.exponentialRampToValueAtTime(Math.max(20, o.f1), t0 + duration);
   }
@@ -170,9 +205,12 @@ function playTone(o) {
 
   osc.connect(g).connect(master);
   osc.start(t0);
-  osc.stop(t0 + duration + 0.03);
+  osc.stop(t0 + duration + 0.05);
 }
 
+/* ============================================================
+   ОПРЕДЕЛЕНИЕ МАТЕРИАЛОВ
+   ============================================================ */
 function matName(id) {
   switch (id) {
     case 1: case 7:  return 'grass';
@@ -186,132 +224,201 @@ function matName(id) {
   }
 }
 
-function sndBreak(id) {
+/* ============================================================
+   ЗВУК УДАРА ПРИ ДОБЫЧЕ (ГРОМКИЙ)
+   ============================================================ */
+function sndHit(id) {
   const m = matName(id);
+  const p = 0.85 + Math.random() * 0.3;
+
   if (m === 'grass') {
-    playNoise({ duration: 0.18, decay: 2.8, filterType: 'bandpass', freq: 2400, freqEnd: 900, Q: 1.2, gain: 0.22 });
-    playNoise({ duration: 0.26, decay: 2.0, filterType: 'highpass', freq: 3200, gain: 0.05, when: 0.01 });
+    playNoise({ duration: 0.08, decay: 3.0, filterType: 'bandpass', freq: 2400 * p, Q: 1.5, gain: 0.20 });
     return;
   }
   if (m === 'dirt') {
-    playNoise({ duration: 0.15, decay: 3.0, filterType: 'lowpass', freq: 950, freqEnd: 300, gain: 0.24 });
-    playTone({ type: 'sine', f0: 140, f1: 80, duration: 0.06, gain: 0.05 });
+    // Очень тяжелый и громкий удар для земли
+    playNoise({ duration: 0.08, decay: 3.0, granular: true, density: 0.2, filterType: 'lowpass', freq: 1000 * p, gain: 0.30 });
+    playTone({ type: 'sine', f0: 100 * p, f1: 50, duration: 0.04, gain: 0.12 });
     return;
   }
   if (m === 'sand') {
-    playNoise({ duration: 0.22, decay: 1.6, filterType: 'highpass', freq: 2000, gain: 0.14 });
-    playNoise({ duration: 0.15, decay: 2.0, filterType: 'bandpass', freq: 800, Q: 1.5, gain: 0.09 });
+    playNoise({ duration: 0.08, decay: 2.5, filterType: 'highpass', freq: 2000 * p, gain: 0.18 });
     return;
   }
   if (m === 'stone') {
-    playNoise({ duration: 0.12, decay: 4, filterType: 'bandpass', freq: 1500, freqEnd: 500, Q: 2, gain: 0.28 });
-    playNoise({ duration: 0.06, decay: 5, filterType: 'highpass', freq: 2500, gain: 0.08, when: 0.005 });
-    playTone({ type: 'square', f0: 130, f1: 60, duration: 0.08, gain: 0.07 });
+    playTone({ type: 'square', f0: 150 * p, f1: 80, duration: 0.04, gain: 0.12 });
+    playNoise({ duration: 0.06, decay: 4.0, filterType: 'bandpass', freq: 1600 * p, Q: 2.0, gain: 0.30 });
     return;
   }
   if (m === 'wood') {
-    playNoise({ duration: 0.14, decay: 3, filterType: 'bandpass', freq: 1100, Q: 1.6, gain: 0.22 });
-    playTone({ type: 'triangle', f0: 240, f1: 110, duration: 0.10, gain: 0.11 });
-    playTone({ type: 'square',   f0: 480, f1: 220, duration: 0.05, gain: 0.04, when: 0.01 });
+    playTone({ type: 'triangle', f0: 260 * p, f1: 140, duration: 0.05, gain: 0.25 });
+    playNoise({ duration: 0.06, decay: 3.0, filterType: 'bandpass', freq: 1200 * p, Q: 2.0, gain: 0.25 });
     return;
   }
   if (m === 'glass') {
-    for (let i = 0; i < 6; i++) {
-      playTone({
-        type: 'triangle',
-        f0: 2400 + Math.random() * 1800,
-        f1: 1700 + Math.random() * 400,
-        duration: 0.05 + Math.random() * 0.05,
-        gain: 0.055,
-        when: i * 0.022
-      });
-    }
-    playNoise({ duration: 0.22, decay: 2.0, filterType: 'highpass', freq: 2800, gain: 0.13 });
+    playTone({ type: 'triangle', f0: 2000 * p, f1: 1500, duration: 0.04, gain: 0.12 });
     return;
   }
   if (m === 'snow') {
-    playNoise({ duration: 0.18, decay: 3.0, crackle: true, crackleRate: 0.12,
-                filterType: 'bandpass', freq: 3400, freqEnd: 1400, Q: 1.4, gain: 0.20 });
-    playNoise({ duration: 0.14, decay: 4.0, crackle: true, crackleRate: 0.09,
-                filterType: 'highpass', freq: 4200, gain: 0.09, when: 0.005 });
-    playNoise({ duration: 0.10, decay: 4.5, filterType: 'lowpass', freq: 900, freqEnd: 220, gain: 0.11 });
+    playNoise({ duration: 0.08, decay: 3.0, crackle: true, crackleRate: 0.1, filterType: 'bandpass', freq: 3500 * p, Q: 1.5, gain: 0.25 });
+    return;
+  }
+  playNoise({ duration: 0.08, decay: 3.0, filterType: 'bandpass', freq: 1000 * p, Q: 1.5, gain: 0.25 });
+}
+
+/* ============================================================
+   ЗВУКИ ЛОМАНИЯ (ГРОМКИЕ И МОЩНЫЕ)
+   ============================================================ */
+function sndBreak(id) {
+  const m = matName(id);
+  const p = 0.85 + Math.random() * 0.3;
+
+  if (m === 'grass') {
+    playNoise({ duration: 0.20, decay: 2.5, filterType: 'bandpass', freq: 2800 * p, freqEnd: 1200, Q: 1.5, gain: 0.35 });
+    playNoise({ duration: 0.10, decay: 3.0, crackle: true, crackleRate: 0.15, filterType: 'highpass', freq: 3500 * p, gain: 0.20 });
+    playTone({ type: 'triangle', f0: 150 * p, f1: 80, duration: 0.05, gain: 0.10 });
+    return;
+  }
+  if (m === 'dirt') {
+    // Мощный низкочастотный удар + очень громкое осыпание
+    playTone({ type: 'sine', f0: 120 * p, f1: 50, duration: 0.10, gain: 0.40 });
+    playNoise({ duration: 0.20, decay: 2.5, granular: true, density: 0.2, filterType: 'lowpass', freq: 1200 * p, freqEnd: 300, gain: 0.60 });
+    playNoise({ duration: 0.15, decay: 3.0, filterType: 'bandpass', freq: 600 * p, Q: 1.2, gain: 0.25, when: 0.01 });
+    return;
+  }
+  if (m === 'sand') {
+    playNoise({ duration: 0.25, decay: 1.8, filterType: 'highpass', freq: 2200 * p, gain: 0.30 });
+    playNoise({ duration: 0.15, decay: 2.5, granular: true, density: 0.1, filterType: 'bandpass', freq: 1000 * p, Q: 1.5, gain: 0.25 });
+    playTone({ type: 'sine', f0: 200 * p, f1: 100, duration: 0.06, gain: 0.15 });
+    return;
+  }
+  if (m === 'stone') {
+    playTone({ type: 'sine', f0: 140 * p, f1: 60, duration: 0.12, gain: 0.40 });
+    playNoise({ duration: 0.15, decay: 3.0, granular: true, density: 0.3, filterType: 'bandpass', freq: 1600 * p, freqEnd: 600, Q: 2.0, gain: 0.50 });
+    
+    const numChips = 5;
+    for (let i = 0; i < numChips; i++) {
+      playTone({
+        type: 'square',
+        f0: (1800 + Math.random() * 1200) * p,
+        f1: (800 + Math.random() * 400) * p,
+        duration: 0.03 + Math.random() * 0.04,
+        gain: 0.10,
+        when: 0.02 + Math.random() * 0.05
+      });
+    }
+    return;
+  }
+  if (m === 'wood') {
+    playTone({ type: 'triangle', f0: 280 * p, f1: 120, duration: 0.12, gain: 0.45 });
+    playNoise({ duration: 0.15, decay: 2.5, filterType: 'bandpass', freq: 1200 * p, Q: 2.5, gain: 0.40 });
+    playNoise({ duration: 0.08, decay: 4.0, crackle: true, crackleRate: 0.2, filterType: 'highpass', freq: 2500 * p, gain: 0.20, when: 0.01 });
+    return;
+  }
+  if (m === 'glass') {
+    const numShards = 8;
+    for (let i = 0; i < numShards; i++) {
+      playTone({
+        type: 'triangle',
+        f0: (2200 + Math.random() * 2400) * p,
+        f1: (1600 + Math.random() * 800) * p,
+        duration: 0.04 + Math.random() * 0.06,
+        gain: 0.15,
+        when: i * 0.015 + Math.random() * 0.02
+      });
+    }
+    playNoise({ duration: 0.25, decay: 1.8, filterType: 'highpass', freq: 3000 * p, gain: 0.25 });
+    return;
+  }
+  if (m === 'snow') {
+    playNoise({ duration: 0.25, decay: 3.0, crackle: true, crackleRate: 0.08,
+                filterType: 'bandpass', freq: 3800 * p, freqEnd: 1800, Q: 1.5, gain: 0.35 });
+    playNoise({ duration: 0.15, decay: 4.0, crackle: true, crackleRate: 0.12,
+                filterType: 'highpass', freq: 4800 * p, gain: 0.18, when: 0.01 });
+    playNoise({ duration: 0.12, decay: 4.5, filterType: 'lowpass', freq: 1100 * p, freqEnd: 300, gain: 0.25 });
+    playTone({ type: 'sine', f0: 180 * p, f1: 90, duration: 0.07, gain: 0.12 });
     return;
   }
 }
 
 function sndPlace(id) {
   const m = matName(id);
-  const p = 0.94 + Math.random() * 0.12;
+  const p = 0.92 + Math.random() * 0.16;
 
   if (m === 'glass') {
     playTone({ type: 'triangle', f0: 1800 * p, f1: 1650, duration: 0.05, gain: 0.12 });
-    playNoise({ duration: 0.06, decay: 3, filterType: 'highpass', freq: 3200, gain: 0.06 });
+    playNoise({ duration: 0.08, decay: 3, filterType: 'highpass', freq: 3200 * p, gain: 0.08 });
     return;
   }
   if (m === 'grass') {
-    playNoise({ duration: 0.10, decay: 3, filterType: 'bandpass', freq: 1700 * p, Q: 1.2, gain: 0.15 });
+    playNoise({ duration: 0.12, decay: 2.5, filterType: 'bandpass', freq: 1800 * p, Q: 1.2, gain: 0.18 });
+    playTone({ type: 'sine', f0: 120 * p, f1: 60, duration: 0.05, gain: 0.05 });
     return;
   }
   if (m === 'sand') {
-    playNoise({ duration: 0.13, decay: 2.2, filterType: 'bandpass', freq: 1000 * p, Q: 1.3, gain: 0.13 });
+    playNoise({ duration: 0.15, decay: 2.0, filterType: 'bandpass', freq: 1100 * p, Q: 1.3, gain: 0.16 });
+    playTone({ type: 'sine', f0: 160 * p, f1: 70, duration: 0.06, gain: 0.06 });
     return;
   }
   if (m === 'wood') {
-    playTone({ type: 'triangle', f0: 320 * p, f1: 180, duration: 0.08, gain: 0.14 });
-    playNoise({ duration: 0.06, decay: 4, filterType: 'bandpass', freq: 950, Q: 2, gain: 0.10 });
+    playTone({ type: 'triangle', f0: 320 * p, f1: 160, duration: 0.10, gain: 0.18 });
+    playNoise({ duration: 0.08, decay: 3.5, filterType: 'bandpass', freq: 1000 * p, Q: 2, gain: 0.12 });
     return;
   }
   if (m === 'snow') {
-    playNoise({ duration: 0.14, decay: 3.5, filterType: 'lowpass', freq: 1100 * p, freqEnd: 320, gain: 0.18 });
-    playNoise({ duration: 0.07, decay: 5.0, filterType: 'bandpass', freq: 2600 * p, Q: 1.2, gain: 0.05, when: 0.004 });
-    playTone({ type: 'sine', f0: 160 * p, f1: 90, duration: 0.07, gain: 0.05 });
+    playNoise({ duration: 0.16, decay: 3.0, filterType: 'lowpass', freq: 1200 * p, freqEnd: 400, gain: 0.20 });
+    playNoise({ duration: 0.08, decay: 4.5, filterType: 'bandpass', freq: 2800 * p, Q: 1.2, gain: 0.06, when: 0.005 });
+    playTone({ type: 'sine', f0: 140 * p, f1: 70, duration: 0.08, gain: 0.07 });
     return;
   }
-  playTone({ type: 'square', f0: 190 * p, f1: 90, duration: 0.05, gain: 0.10 });
-  playNoise({ duration: 0.06, decay: 4, filterType: 'bandpass', freq: 1400 * p, Q: 2, gain: 0.15 });
+  playTone({ type: 'square', f0: 200 * p, f1: 90, duration: 0.06, gain: 0.12 });
+  playNoise({ duration: 0.08, decay: 3.5, filterType: 'bandpass', freq: 1500 * p, Q: 2, gain: 0.18 });
+  playTone({ type: 'sine', f0: 130 * p, f1: 50, duration: 0.08, gain: 0.08 });
 }
 
 function sndStep(id, sprinting) {
   const m = matName(id);
   const mult = sprinting ? 1.35 : 1.0;
-  const jit  = 0.85 + Math.random() * 0.30;
+  const jit  = 0.8 + Math.random() * 0.4;
   const sign = Math.random() < 0.5 ? -1 : 1;
 
   if (m === 'grass') {
-    playNoise({ duration: 0.09, decay: 3.2, filterType: 'bandpass', freq: (780 + sign * 80) * jit, Q: 1.1, gain: 0.13 * mult });
-    playNoise({ duration: 0.06, decay: 4.0, filterType: 'highpass', freq: 2200 * jit, gain: 0.045 * mult, when: 0.005 });
+    playNoise({ duration: 0.10, decay: 3.0, filterType: 'bandpass', freq: (800 + sign * 100) * jit, Q: 1.1, gain: 0.14 * mult });
+    playNoise({ duration: 0.06, decay: 4.0, filterType: 'highpass', freq: 2400 * jit, gain: 0.05 * mult, when: 0.005 });
     return;
   }
   if (m === 'dirt') {
-    playNoise({ duration: 0.09, decay: 3.4, filterType: 'lowpass', freq: (700 + sign * 70) * jit, freqEnd: 260, gain: 0.15 * mult });
-    playTone({ type: 'sine', f0: 120, f1: 70, duration: 0.05, gain: 0.035 * mult });
+    playNoise({ duration: 0.10, decay: 3.2, filterType: 'lowpass', freq: (750 + sign * 70) * jit, freqEnd: 280, gain: 0.16 * mult });
+    playTone({ type: 'sine', f0: 130 * jit, f1: 70, duration: 0.06, gain: 0.04 * mult });
     return;
   }
   if (m === 'sand') {
-    playNoise({ duration: 0.10, decay: 2.6, filterType: 'highpass', freq: (2000 + sign * 150) * jit, gain: 0.11 * mult });
-    playNoise({ duration: 0.07, decay: 3.2, filterType: 'bandpass', freq: 900 * jit, Q: 1.4, gain: 0.06 * mult });
+    playNoise({ duration: 0.12, decay: 2.4, filterType: 'highpass', freq: (2200 + sign * 200) * jit, gain: 0.13 * mult });
+    playNoise({ duration: 0.08, decay: 3.0, filterType: 'bandpass', freq: 1000 * jit, Q: 1.4, gain: 0.07 * mult });
     return;
   }
   if (m === 'stone') {
-    playNoise({ duration: 0.06, decay: 4.5, filterType: 'bandpass', freq: (1300 + sign * 130) * jit, Q: 2.2, gain: 0.15 * mult });
-    playTone({ type: 'square', f0: 130 * jit, f1: 70, duration: 0.045, gain: 0.075 * mult });
-    playNoise({ duration: 0.03, decay: 5, filterType: 'highpass', freq: 2800, gain: 0.035 * mult, when: 0.003 });
+    playNoise({ duration: 0.07, decay: 4.0, filterType: 'bandpass', freq: (1400 + sign * 150) * jit, Q: 2.0, gain: 0.16 * mult });
+    playTone({ type: 'square', f0: 140 * jit, f1: 70, duration: 0.05, gain: 0.08 * mult });
+    playTone({ type: 'sine', f0: 100 * jit, f1: 50, duration: 0.06, gain: 0.06 * mult });
+    playNoise({ duration: 0.03, decay: 5, filterType: 'highpass', freq: 3000 * jit, gain: 0.04 * mult, when: 0.003 });
     return;
   }
   if (m === 'wood') {
-    playTone({ type: 'triangle', f0: 190 * jit, f1: 100, duration: 0.07, gain: 0.11 * mult });
-    playNoise({ duration: 0.06, decay: 4, filterType: 'bandpass', freq: (900 + sign * 100) * jit, Q: 2, gain: 0.11 * mult });
+    playTone({ type: 'triangle', f0: 200 * jit, f1: 110, duration: 0.08, gain: 0.12 * mult });
+    playNoise({ duration: 0.07, decay: 3.5, filterType: 'bandpass', freq: (1000 + sign * 100) * jit, Q: 2, gain: 0.12 * mult });
     return;
   }
   if (m === 'snow') {
-    const base = (1900 + sign * 180) * jit;
-    playNoise({ duration: 0.06, decay: 3.0, filterType: 'bandpass', freq: base, Q: 6.0, gain: 0.075 * mult });
-    playNoise({ duration: 0.09, decay: 3.5, crackle: true, crackleRate: 0.10,
-                filterType: 'bandpass', freq: (3300 + sign * 250) * jit, Q: 1.8, gain: 0.11 * mult, when: 0.005 });
-    playNoise({ duration: 0.08, decay: 4.0, filterType: 'lowpass', freq: 800 * jit, freqEnd: 260, gain: 0.10 * mult });
+    const base = (2000 + sign * 200) * jit;
+    playNoise({ duration: 0.07, decay: 2.8, filterType: 'bandpass', freq: base, Q: 6.0, gain: 0.08 * mult });
+    playNoise({ duration: 0.10, decay: 3.2, crackle: true, crackleRate: 0.12,
+                filterType: 'bandpass', freq: (3500 + sign * 300) * jit, Q: 1.8, gain: 0.12 * mult, when: 0.005 });
+    playNoise({ duration: 0.09, decay: 3.8, filterType: 'lowpass', freq: 900 * jit, freqEnd: 300, gain: 0.11 * mult });
     return;
   }
-  playNoise({ duration: 0.08, decay: 3.5, filterType: 'bandpass', freq: (620 + sign * 60) * jit, Q: 1.2, gain: 0.13 * mult });
+  playNoise({ duration: 0.09, decay: 3.2, filterType: 'bandpass', freq: (680 + sign * 80) * jit, Q: 1.2, gain: 0.14 * mult });
+  playTone({ type: 'sine', f0: 100 * jit, f1: 40, duration: 0.05, gain: 0.04 * mult });
 }
 
 function sndJump() {
@@ -488,11 +595,13 @@ function sndMobDeath(type) {
   }
 }
 
+/* --- Инициализация --- */
 createCtx();
 
 return {
   resume: resume,
   break:  sndBreak,
+  hit:    sndHit,
   place:  sndPlace,
   step:   sndStep,
   jump:   sndJump,

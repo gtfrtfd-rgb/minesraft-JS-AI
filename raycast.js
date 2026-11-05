@@ -87,6 +87,7 @@ function stopBreaking() {
   G.breaking.progress = 0;
   G.breaking.stage = 0;
   G.breaking.target = null;
+  G.breaking.soundTimer = 0;
   if (G.crackMesh) G.crackMesh.visible = false;
 }
 
@@ -123,6 +124,7 @@ function updateBreaking(dt) {
     b.target = { x: t.x, y: t.y, z: t.z };
     b.progress = 0;
     b.stage = 0;
+    b.soundTimer = 0; // Сбрасываем таймер при смене цели
     G.crackMat.map = G.crackTextures[0];
   }
 
@@ -141,6 +143,15 @@ function updateBreaking(dt) {
     G.crackMat.map = G.crackTextures[stage - 1];
   }
 
+  // Воспроизводим ритмичный звук удара
+  if (G.gameMode !== 'creative' && b.progress < 1) {
+    b.soundTimer -= dt;
+    if (b.soundTimer <= 0) {
+      b.soundTimer = 0.22 + Math.random() * 0.08; // Интервал между ударами
+      SFX.hit(id);
+    }
+  }
+
   if (G.crackMesh) {
     G.crackMesh.visible = true;
     G.crackMesh.position.set(t.x + 0.5, t.y + 0.5, t.z + 0.5);
@@ -150,7 +161,7 @@ function updateBreaking(dt) {
     G.world[G.IDX(t.x, t.y, t.z)] = 0;
     G.rebuildAround(t.x, t.z);
     if (G.api.save) G.api.save.markDirty();
-    SFX.break(id);
+    SFX.break(id); // Финальный звук разрушения
 
     if (G.gameMode === 'creative') G.creativeBrokeThisClick = true;
     stopBreaking();

@@ -124,7 +124,7 @@ const G = {
   /* --- Атака/ломание --- */
   attackTimer: 0,
   currentTarget: null,
-  breaking: { active: false, target: null, progress: 0, stage: 0 },
+  breaking: { active: false, target: null, progress: 0, stage: 0, soundTimer: 0 },
   creativeBrokeThisClick: false,
 
   /* --- Шаги/спринт --- */
@@ -171,6 +171,7 @@ const G = {
     if (!s.flyOff) s.flyOff = function () {};
     if (!s.hurt)   s.hurt   = function () {};
     if (!s.death)  s.death  = function () {};
+    if (!s.hit)    s.hit    = function () {}; // Заглушка для звука удара
     if (!s.setVolume) s.setVolume = function () {};
     if (!s.getVolume) s.getVolume = function () { return 1; };
     G.SFX = s;
@@ -180,7 +181,7 @@ const G = {
   const noop = function () {};
   G.SFX = {
     resume: noop, break: noop, place: noop, step: noop, jump: noop,
-    select: noop, flyOn: noop, flyOff: noop, hurt: noop, death: noop,
+    select: noop, flyOn: noop, flyOff: noop, hurt: noop, death: noop, hit: noop,
     setVolume: noop, getVolume: function () { return 1; }
   };
 })();
