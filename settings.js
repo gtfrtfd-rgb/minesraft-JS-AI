@@ -9,6 +9,7 @@ const G = window.GAME;
 if (!G) return;
 
 const SFX = G.SFX;
+const isTouchDevice = document.documentElement.classList.contains('is-touch');
 
 const SETTINGS_KEY = 'mcweb_settings_v2';
 const DEFAULT_SETTINGS = { volume: 1, renderDist: 6, fpsLimitIdx: 2, gameMode: 'survival', fancyLeaves: true };
@@ -49,6 +50,7 @@ const renderValueEl = document.getElementById('set-render-val');
 const fpsSlider     = document.getElementById('set-fps');
 const fpsValueEl    = document.getElementById('set-fps-val');
 const fsCheckbox    = document.getElementById('set-fullscreen');
+const closeSettingsBtn = document.getElementById('close-settings-btn');
 
 /* --- Громкость --- */
 SFX.setVolume(settings.volume);
@@ -251,6 +253,7 @@ document.addEventListener('webkitfullscreenchange', function () {
 
 /* --- Открытие/закрытие панели --- */
 function clampSettingsPosition() {
+  if (isTouchDevice) return; // На телефоне панель всегда на весь экран
   if (!settingsPanel.style.left) return;
   const r = settingsPanel.getBoundingClientRect();
   let x = parseFloat(settingsPanel.style.left);
@@ -292,6 +295,13 @@ function toggleSettings(force, opts) {
     }
     G.wasInGameBeforeSettings = false;
   }
+}
+
+if (closeSettingsBtn) {
+  closeSettingsBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    toggleSettings(false);
+  });
 }
 
 const menuSettingsBtn = document.getElementById('menuSettingsBtn');
@@ -338,6 +348,7 @@ if (settingsDragHandle) {
   }
 
   settingsDragHandle.addEventListener('mousedown', function (e) {
+    if (isTouchDevice) return; // Не тащим на мобилке
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();

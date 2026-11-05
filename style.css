@@ -81,7 +81,7 @@ canvas{display:block}
 #crosshair::after{top:50%;left:0;height:2px;width:100%;margin-top:-1px}
 
 /* ============================================================
-   HOTBAR (ИСПРАВЛЕНО)
+   HOTBAR
    ============================================================ */
 #hotbar{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -98,7 +98,7 @@ canvas{display:block}
   border:2px solid rgba(255,255,255,.15);
   border-radius:4px;
   background-color:rgba(20,25,35,.9);
-  background-size:100% 100%; /* Текстура ровно на весь слот, без захвата краев */
+  background-size:100% 100%;
   background-repeat:no-repeat;
   image-rendering:pixelated;image-rendering:crisp-edges;
   position:relative;
@@ -279,7 +279,6 @@ canvas{display:block}
   text-transform:uppercase;font-weight:500;color:#c8d4e0;
 }
 
-/* --- КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: убрали display:flex --- */
 .menu-cards{
   gap:16px;margin-bottom:26px;width:100%;justify-content:center;
   animation:cardsIn .7s cubic-bezier(.34,1.56,.64,1) .1s backwards;
@@ -326,7 +325,6 @@ canvas{display:block}
   color:#d8dfe8;
 }
 
-/* На тач-устройстве подписи «клавиш» длиннее — чуть компактнее */
 @media (pointer: coarse) {
   .only-mobile .ctrl-key { font-size: 10px; padding: 4px 7px; letter-spacing: .3px; }
   .only-mobile .ctrl-desc { font-size: 11px; }
@@ -765,6 +763,10 @@ canvas{display:block}
   color:rgba(255,255,255,.6);
 }
 
+.settings-close {
+  display: none;
+}
+
 .setting-row{
   display:flex;align-items:center;gap:10px;
   margin-bottom:16px;cursor:pointer;user-select:none;
@@ -818,6 +820,65 @@ body.settings-dragging{
 body.settings-dragging *{cursor:move !important}
 
 /* ============================================================
+   МОБИЛЬНЫЕ НАСТРОЙКИ (ПОЛНЫЙ ЭКРАН)
+   ============================================================ */
+html.is-touch #settings-panel {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  border-radius: 0;
+  z-index: 100;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+html.is-touch .settings-title {
+  cursor: default;
+  font-size: 20px;
+  margin-bottom: 24px;
+}
+
+html.is-touch .settings-title .drag-grip {
+  display: none;
+}
+
+html.is-touch .settings-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  padding: 0;
+  font-family: inherit;
+}
+
+html.is-touch .settings-close:active {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(0.9);
+}
+
+html.is-touch .setting-row {
+  margin-bottom: 22px;
+}
+
+html.is-touch #set-volume {
+  width: 140px;
+}
+
+/* ============================================================
    АДАПТИВ
    ============================================================ */
 @media (max-width: 720px){
@@ -837,7 +898,7 @@ body.settings-dragging *{cursor:move !important}
   .worlds-header h2{font-size:18px}
   .worlds-add{bottom:16px;padding:12px 26px;font-size:14px}
 
-  #settings-panel{width:calc(100% - 28px);right:14px;left:14px}
+  html:not(.is-touch) #settings-panel{width:calc(100% - 28px);right:14px;left:14px}
 }
 
 @media (max-width: 400px){

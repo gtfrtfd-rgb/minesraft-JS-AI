@@ -33,7 +33,10 @@
 <div id="hint"></div>
 
 <div id="settings-panel">
-  <div class="settings-title" id="settings-drag">Настройки <span class="drag-grip">⠿</span></div>
+  <div class="settings-title" id="settings-drag">
+    Настройки <span class="drag-grip">⠿</span>
+    <button id="close-settings-btn" class="settings-close" aria-label="Закрыть">✕</button>
+  </div>
 
   <label class="setting-row">
     <span class="setting-label">Громкость</span>
@@ -200,7 +203,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="textures.js"></script> <!-- НОВЫЙ ФАЙЛ -->
+<script src="textures.js"></script>
 <script src="world.js"></script>
 <script src="render.js"></script>
 <script src="sounds.js"></script>
@@ -215,7 +218,7 @@
 <script src="input.js"></script>
 <script src="hud.js"></script>
 <script src="worlds-ui.js"></script>
-<script src="mobile.js"></script> <!-- НОВЫЙ ФАЙЛ: тач-контролы -->
+<script src="mobile.js"></script>
 <script src="main.js"></script>
 </body>
 </html>
