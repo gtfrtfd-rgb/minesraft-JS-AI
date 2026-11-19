@@ -5,26 +5,25 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Minecraft Web</title>
 <style>
-  /* По умолчанию скрываем ОБЕ карточки, пока JS не выберет нужную */
-  .only-desktop, .only-mobile { display: none; }
+/* По умолчанию скрываем ОБЕ карточки, пока JS не выберет нужную */
+.only-desktop, .only-mobile { display: none; }
 </style>
 <link rel="stylesheet" href="style.css">
 <script>
-  /* Определяем тач и принудительно показываем только одну карточку */
-  (function () {
-    var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-    var style = document.createElement('style');
-    style.textContent = isTouch
-      ? '.only-mobile { display: flex !important; }'
-      : '.only-desktop { display: flex !important; }';
-    document.head.appendChild(style);
-  })();
+/* Определяем тач и принудительно показываем только одну карточку */
+(function () {
+var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+var style = document.createElement('style');
+style.textContent = isTouch
+? '.only-mobile { display: flex !important; }'
+: '.only-desktop { display: flex !important; }';
+document.head.appendChild(style);
+})();
 </script>
 </head>
 <body>
 
 <div id="loading"><div>Загрузка…</div></div>
-
 <div id="hurt"></div>
 <div id="crosshair"></div>
 <div id="info"></div>
@@ -33,173 +32,174 @@
 <div id="hint"></div>
 
 <div id="settings-panel">
-  <div class="settings-title" id="settings-drag">
-    Настройки <span class="drag-grip">⠿</span>
-    <button id="close-settings-btn" class="settings-close" aria-label="Закрыть"></button>
-  </div>
+<div class="settings-title" id="settings-drag">
+Настройки <span class="drag-grip">⠿</span>
+<button id="close-settings-btn" class="settings-close" aria-label="Закрыть"></button>
+</div>
 
-  <label class="setting-row">
-    <span class="setting-label">Громкость</span>
-    <input type="range" id="set-volume" min="0" max="100" step="1" value="100">
-    <span class="setting-value" id="set-volume-val">100%</span>
-  </label>
+<label class="setting-row">
+<span class="setting-label">Громкость</span>
+<input type="range" id="set-volume" min="0" max="100" step="1" value="100">
+<span class="setting-value" id="set-volume-val">100%</span>
+</label>
 
-  <label class="setting-row">
-    <span class="setting-label">Прорисовка</span>
-    <input type="range" id="set-render" min="2" max="12" step="1" value="6">
-    <span class="setting-value" id="set-render-val">6</span>
-  </label>
+<label class="setting-row">
+<span class="setting-label">Прорисовка</span>
+<input type="range" id="set-render" min="2" max="12" step="1" value="6">
+<span class="setting-value" id="set-render-val">6</span>
+</label>
 
-  <label class="setting-row">
-    <span class="setting-label">Лимит FPS</span>
-    <input type="range" id="set-fps" min="0" max="9" step="1" value="2">
-    <span class="setting-value" id="set-fps-val">60</span>
-  </label>
+<label class="setting-row">
+<span class="setting-label">Лимит FPS</span>
+<input type="range" id="set-fps" min="0" max="9" step="1" value="2">
+<span class="setting-value" id="set-fps-val">60</span>
+</label>
 
-  <label class="setting-row">
-    <span class="setting-label">Полный экран</span>
-    <span class="setting-toggle">
-      <input type="checkbox" id="set-fullscreen">
-      <span class="toggle-track"><span class="toggle-knob"></span></span>
-    </span>
-  </label>
+<label class="setting-row">
+<span class="setting-label">Полный экран</span>
+<span class="setting-toggle">
+<input type="checkbox" id="set-fullscreen">
+<span class="toggle-track"><span class="toggle-knob"></span></span>
+</span>
+</label>
 
-  <div class="settings-hint">Прорисовка: <b>2–12</b> чанков (32–192 блока)<br>Меньше — выше FPS, больше — видно дальше</div>
-  <div class="settings-hint">Лимит FPS: <b>15 · 30 · 60 · 90 · 120 · 144 · 165 · 180 · 240 · ∞</b></div>
-  <div class="settings-hint">Режим игры: <b>G</b> — переключить Выживание / Креатив<br>Полёт доступен только в Креативе</div>
-  <div class="settings-hint">На ПК: <b>O</b> — открыть/закрыть · <b>Esc</b> — пауза</div>
+<div class="settings-hint">Прорисовка: <b>2–12</b> чанков (32–192 блока)<br>Меньше — выше FPS, больше — видно дальше</div>
+<div class="settings-hint">Лимит FPS: <b>15 · 30 · 60 · 90 · 120 · 144 · 165 · 180 · 240 · ∞</b></div>
+<div class="settings-hint">Режим игры: <b>G</b> — переключить Выживание / Креатив<br>Полёт доступен только в Креативе</div>
+<div class="settings-hint">Звук: <b>M</b> — быстро выключить/включить всё аудио<br>Громкость меняется только здесь, в настройках</div>
+<div class="settings-hint">На ПК: <b>O</b> — открыть/закрыть · <b>Esc</b> — пауза</div>
 </div>
 
 <div id="death">
-  <h2>ВЫ УМЕРЛИ</h2>
-  <button class="btn" id="respawnBtn" style="margin-top: 20px;">Возродиться</button>
+<h2>ВЫ УМЕРЛИ</h2>
+<button class="btn" id="respawnBtn" style="margin-top: 20px;">Возродиться</button>
 </div>
 
 <div id="menu">
-  <div class="menu-bg">
-    <div class="menu-cloud c1"></div>
-    <div class="menu-cloud c2"></div>
-    <div class="menu-cloud c3"></div>
-    <div class="menu-cloud c4"></div>
-    <div class="menu-cloud c5"></div>
-    <div class="menu-cloud c6"></div>
-  </div>
+<div class="menu-bg">
+<div class="menu-cloud c1"></div>
+<div class="menu-cloud c2"></div>
+<div class="menu-cloud c3"></div>
+<div class="menu-cloud c4"></div>
+<div class="menu-cloud c5"></div>
+<div class="menu-cloud c6"></div>
+</div>
 
-  <div class="menu-content">
-    <div class="menu-logo">
-      <h1>MINE<span>CRAFT</span></h1>
-      <div class="sub">воксельный мир в браузере</div>
-    </div>
+<div class="menu-content">
+<div class="menu-logo">
+<h1>MINE<span>CRAFT</span></h1>
+<div class="sub">воксельный мир в браузере</div>
+</div>
 
-    <!-- Управление для ПК -->
-    <div class="menu-cards only-desktop">
-      <div class="menu-card">
-        <div class="card-title">Управление</div>
-        <div class="controls">
-          <div class="ctrl-row"><span class="ctrl-key">W A S D</span><span class="ctrl-desc">движение</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">← ↑ ↓ →</span><span class="ctrl-desc">движение</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">Пробел</span><span class="ctrl-desc">прыжок</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">Ctrl</span><span class="ctrl-desc">бег</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">Shift</span><span class="ctrl-desc">присесть</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">F</span><span class="ctrl-desc">полёт (креатив)</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">G</span><span class="ctrl-desc">режим игры</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">ЛКМ / ПКМ</span><span class="ctrl-desc">ломать / ставить</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">1–9 · 0 · −</span><span class="ctrl-desc">выбор блока</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">O</span><span class="ctrl-desc">настройки</span></div>
-        </div>
-      </div>
-    </div>
+<!-- Управление для ПК -->
+<div class="menu-cards only-desktop">
+<div class="menu-card">
+<div class="card-title">Управление</div>
+<div class="controls">
+<div class="ctrl-row"><span class="ctrl-key">W A S D</span><span class="ctrl-desc">движение</span></div>
+<div class="ctrl-row"><span class="ctrl-key">← ↑ ↓ →</span><span class="ctrl-desc">движение</span></div>
+<div class="ctrl-row"><span class="ctrl-key">Пробел</span><span class="ctrl-desc">прыжок</span></div>
+<div class="ctrl-row"><span class="ctrl-key">Ctrl</span><span class="ctrl-desc">бег</span></div>
+<div class="ctrl-row"><span class="ctrl-key">Shift</span><span class="ctrl-desc">присесть</span></div>
+<div class="ctrl-row"><span class="ctrl-key">F</span><span class="ctrl-desc">полёт (креатив)</span></div>
+<div class="ctrl-row"><span class="ctrl-key">G</span><span class="ctrl-desc">режим игры</span></div>
+<div class="ctrl-row"><span class="ctrl-key">ЛКМ / ПКМ</span><span class="ctrl-desc">ломать / ставить</span></div>
+<div class="ctrl-row"><span class="ctrl-key">1–9 · 0 · −</span><span class="ctrl-desc">выбор блока</span></div>
+<div class="ctrl-row"><span class="ctrl-key">O · M</span><span class="ctrl-desc">настройки · звук</span></div>
+</div>
+</div>
+</div>
 
-    <!-- Управление для телефона -->
-    <div class="menu-cards only-mobile">
-      <div class="menu-card">
-        <div class="card-title">Управление (тач)</div>
-        <div class="controls">
-          <div class="ctrl-row"><span class="ctrl-key">Джойстик</span><span class="ctrl-desc">движение</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">Свайп справа</span><span class="ctrl-desc">обзор</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">⛏ удерж.</span><span class="ctrl-desc">ломать блок</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">▣ тап</span><span class="ctrl-desc">поставить блок</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">↑</span><span class="ctrl-desc">прыжок / вверх</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">↓</span><span class="ctrl-desc">присесть / вниз</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">✈</span><span class="ctrl-desc">полёт (креатив)</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">Тап по слоту</span><span class="ctrl-desc">выбор блока</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">⚙</span><span class="ctrl-desc">настройки</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">☰</span><span class="ctrl-desc">пауза</span></div>
-        </div>
-      </div>
-    </div>
+<!-- Управление для телефона -->
+<div class="menu-cards only-mobile">
+<div class="menu-card">
+<div class="card-title">Управление (тач)</div>
+<div class="controls">
+<div class="ctrl-row"><span class="ctrl-key">Джойстик</span><span class="ctrl-desc">движение</span></div>
+<div class="ctrl-row"><span class="ctrl-key">Свайп справа</span><span class="ctrl-desc">обзор</span></div>
+<div class="ctrl-row"><span class="ctrl-key">⛏ удерж.</span><span class="ctrl-desc">ломать блок</span></div>
+<div class="ctrl-row"><span class="ctrl-key">▣ тап</span><span class="ctrl-desc">поставить блок</span></div>
+<div class="ctrl-row"><span class="ctrl-key">↑</span><span class="ctrl-desc">прыжок / вверх</span></div>
+<div class="ctrl-row"><span class="ctrl-key">↓</span><span class="ctrl-desc">присесть / вниз</span></div>
+<div class="ctrl-row"><span class="ctrl-key">✈</span><span class="ctrl-desc">полёт (креатив)</span></div>
+<div class="ctrl-row"><span class="ctrl-key">Тап по слоту</span><span class="ctrl-desc">выбор блока</span></div>
+<div class="ctrl-row"><span class="ctrl-key">🔊 слева сверху</span><span class="ctrl-desc">звук вкл / выкл</span></div>
+<div class="ctrl-row"><span class="ctrl-key">⚙ · ☰</span><span class="ctrl-desc">настройки · пауза</span></div>
+</div>
+</div>
+</div>
 
-    <div class="menu-buttons">
-      <button class="btn primary" id="startBtn">
-        <span class="btn-icon">▶</span>
-        <span>ИГРАТЬ</span>
-      </button>
-      <button class="btn secondary" id="worldsBtn">
-        <span class="btn-icon">🌍</span>
-        <span>Мои миры</span>
-      </button>
-      <button class="btn secondary" id="menuSettingsBtn">
-        <span class="btn-icon">⚙</span>
-        <span>Настройки</span>
-      </button>
-    </div>
+<div class="menu-buttons">
+<button class="btn primary" id="startBtn">
+<span class="btn-icon">▶</span>
+<span>ИГРАТЬ</span>
+</button>
+<button class="btn secondary" id="worldsBtn">
+<span class="btn-icon">🌍</span>
+<span>Мои миры</span>
+</button>
+<button class="btn secondary" id="menuSettingsBtn">
+<span class="btn-icon">⚙</span>
+<span>Настройки</span>
+</button>
+</div>
 
-    <div class="menu-footer">
-      <span class="menu-hint">Minecraft Web · HTML5 + WebGL</span>
-    </div>
-  </div>
+<div class="menu-footer">
+<span class="menu-hint">Minecraft Web · HTML5 + WebGL</span>
+</div>
+</div>
 </div>
 
 <div id="pause">
-  <div class="pause-box">
-    <h2>ПАУЗА</h2>
-    <div class="pause-world" id="pauseWorldInfo">—</div>
-    <div class="pause-buttons">
-      <button class="btn primary" id="pauseResume">
-        <span class="btn-icon">▶</span>
-        <span>Продолжить</span>
-      </button>
-      <button class="btn secondary" id="pauseExit">
-        <span class="btn-icon">🚪</span>
-        <span>Выйти в главное меню</span>
-      </button>
-    </div>
-    <div class="pause-hint">На ПК: <b>Esc</b> — вернуться в игру</div>
-  </div>
+<div class="pause-box">
+<h2>ПАУЗА</h2>
+<div class="pause-world" id="pauseWorldInfo">—</div>
+<div class="pause-buttons">
+<button class="btn primary" id="pauseResume">
+<span class="btn-icon">▶</span>
+<span>Продолжить</span>
+</button>
+<button class="btn secondary" id="pauseExit">
+<span class="btn-icon">🚪</span>
+<span>Выйти в главное меню</span>
+</button>
+</div>
+<div class="pause-hint">На ПК: <b>Esc</b> — вернуться в игру · <b>M</b> — звук</div>
+</div>
 </div>
 
 <div id="worlds-panel">
-  <div class="worlds-header">
-    <h2>Мои миры</h2>
-    <button class="worlds-close" id="worldsClose" aria-label="Закрыть">✕</button>
-  </div>
-  <div class="worlds-list" id="worldsList"></div>
-  <button class="btn primary worlds-add" id="worldsAdd">
-    <span class="btn-icon">＋</span>
-    <span>Создать мир</span>
-  </button>
+<div class="worlds-header">
+<h2>Мои миры</h2>
+<button class="worlds-close" id="worldsClose" aria-label="Закрыть">✕</button>
+</div>
+<div class="worlds-list" id="worldsList"></div>
+<button class="btn primary worlds-add" id="worldsAdd">
+<span class="btn-icon">＋</span>
+<span>Создать мир</span>
+</button>
 </div>
 
 <div id="worlds-rename">
-  <div class="modal-box">
-    <h3>Переименовать мир</h3>
-    <input type="text" id="worldsRenameInput" maxlength="32" placeholder="Название мира">
-    <div class="modal-actions">
-      <button class="btn secondary" id="worldsRenameCancel">Отмена</button>
-      <button class="btn primary" id="worldsRenameOk">Сохранить</button>
-    </div>
-  </div>
+<div class="modal-box">
+<h3>Переименовать мир</h3>
+<input type="text" id="worldsRenameInput" maxlength="32" placeholder="Название мира">
+<div class="modal-actions">
+<button class="btn secondary" id="worldsRenameCancel">Отмена</button>
+<button class="btn primary" id="worldsRenameOk">Сохранить</button>
+</div>
+</div>
 </div>
 
 <div id="worlds-delete">
-  <div class="modal-box">
-    <h3>Удалить мир?</h3>
-    <div class="modal-sub">Мир «<span id="worldsDeleteName"></span>» будет удалён навсегда.</div>
-    <div class="modal-actions">
-      <button class="btn secondary" id="worldsDeleteCancel">Отмена</button>
-      <button class="btn danger" id="worldsDeleteOk">Удалить</button>
-    </div>
-  </div>
+<div class="modal-box">
+<h3>Удалить мир?</h3>
+<div class="modal-sub">Мир «<span id="worldsDeleteName"></span>» будет удалён навсегда.</div>
+<div class="modal-actions">
+<button class="btn secondary" id="worldsDeleteCancel">Отмена</button>
+<button class="btn danger" id="worldsDeleteOk">Удалить</button>
+</div>
+</div>
 </div>
 
 <!-- ИСПРАВЛЕНА ССЫЛКА НА ТРЕХ.ЖС (r150, jsDelivr) -->
@@ -220,6 +220,7 @@
 <script src="hud.js"></script>
 <script src="worlds-ui.js"></script>
 <script src="mobile.js"></script>
+<script src="audio-ui.js"></script>
 <script src="main.js"></script>
 </body>
 </html>
